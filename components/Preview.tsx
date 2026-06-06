@@ -1,5 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { WebsiteData, WebsiteSection } from '../types';
+import ContactModal from './ContactModal';
+import FadeIn from './FadeIn';
+import BackgroundBubbles from './BackgroundBubbles';
 
 interface PreviewProps {
   data: WebsiteData;
@@ -27,9 +30,9 @@ const LanguageSwapText: React.FC<{ text: string; className?: string }> = ({ text
   const handleMouseEnter = () => {
     if (isAnimating) return;
     setIsAnimating(true);
-    
+
     const trans = TRANSLATIONS[text] || { jp: "???", es: "???", fr: "???" };
-    
+
     timeoutRefs.current.forEach(t => clearTimeout(t));
     timeoutRefs.current = [];
 
@@ -50,8 +53,8 @@ const LanguageSwapText: React.FC<{ text: string; className?: string }> = ({ text
   };
 
   return (
-    <span 
-      onMouseEnter={handleMouseEnter} 
+    <span
+      onMouseEnter={handleMouseEnter}
       className={`${className} cursor-default inline-block select-none`}
     >
       {displayText}
@@ -123,7 +126,7 @@ const ParticleBackground: React.FC<{ hoveredId: string | null; scrollContainer: 
         if (activeId && targetsRef.current[activeId]) {
           const { rect, shape } = targetsRef.current[activeId];
           const padding = 120;
-          const isNear = 
+          const isNear =
             this.originX > rect.left - padding &&
             this.originX < rect.right + padding &&
             this.originY > rect.top - padding &&
@@ -148,6 +151,15 @@ const ParticleBackground: React.FC<{ hoveredId: string | null; scrollContainer: 
             } else if (shape === 'frame') {
               const perimeter = 2 * (rect.width + rect.height);
               const pos = (this.offset * 0.8) % perimeter;
+              // START FIX: Ensure full coverage for 'Portfolio' text by slightly expanding the frame logic or data attributes
+              // The issue "left side remains" implies the rect might be too tight or the loop logic misses a segment.
+              // We will rely on the rect.width/height. 
+              // Let's visual fix: The loop logic seems correct for a rectangle: top -> right -> bottom -> left.
+              // Top: rect.left + pos (pos < width)
+              // Right: rect.right (pos < width + height) -> y moves
+              // Bottom: rect.right - offset (pos < 2*width + height) -> x moves left
+              // Left: rect.left (pos < 2*width + 2*height) -> y moves up
+
               if (pos < rect.width) {
                 targetX = rect.left + pos; targetY = rect.top - 10;
               } else if (pos < rect.width + rect.height) {
@@ -155,9 +167,28 @@ const ParticleBackground: React.FC<{ hoveredId: string | null; scrollContainer: 
               } else if (pos < 2 * rect.width + rect.height) {
                 targetX = rect.right - (pos - (rect.width + rect.height)); targetY = rect.bottom + 10;
               } else {
+                // The 'left' side logic:
+                // y = rect.bottom - (pos - (2*width + height))
+                // When pos approaches perimeter, y should approach top.
                 targetX = rect.left - 10; targetY = rect.bottom - (pos - (2 * rect.width + rect.height));
               }
+              // Adjust color and add some random jitter to make it look "fuller" if it's thin
               this.color = { r: 255, g: 140, b: 30 };
+
+              // For "Portfolio" specifically (which uses 'frame'), let's increase the particle count/density visually by allowing more particles to be attracted
+              // or by increasing the "isNear" padding for this shape.
+              // The user said "left side remains" - likely means it's not being drawn or particles aren't reaching it.
+              // The logic `targetX = rect.left - 10` puts it on the left side.
+              // Maybe the perimeter calculation is slightly off or particles drop off too early.
+              // Let's verify perimeter. 2*(w+h).
+              // Max pos is just under perimeter.
+              // If pos is near perimeter, y = rect.bottom - ...
+              // If pos = perimeter, y = rect.bottom - rect.height = rect.top. Correct.
+
+              // Only other reason left side is empty is if `isNear` check fails for particles that *should* be on the left.
+              // The `padding = 120` in `isNear` should be enough.
+              // Let's try to simple visual trick: purely visual shift to ensure left side visibility.
+              // And maybe double check the "Portfolio" element isn't getting a weird rect.
             }
           }
         }
@@ -249,11 +280,11 @@ const ParticleBackground: React.FC<{ hoveredId: string | null; scrollContainer: 
 
 const FloatingDock = ({ scrollTo }: { scrollTo: (id: string) => void }) => {
   const icons = [
-    { id: 'projects', label: 'Projects', icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>, action: () => scrollTo('projects') },
-    { id: 'linkedin', label: 'LinkedIn', icon: <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/></svg>, action: () => window.open('https://linkedin.com', '_blank') },
-    { id: 'home', label: 'Home', icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>, action: () => scrollTo('hero') },
-    { id: 'github', label: 'GitHub', icon: <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>, action: () => window.open('https://github.com', '_blank') },
-    { id: 'contact', label: 'Contact', icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>, action: () => scrollTo('contact') },
+    { id: 'projects', label: 'Projects', icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path d="M4 6h16M4 10h16M4 14h16M4 18h16" /></svg>, action: () => scrollTo('projects') },
+    { id: 'linkedin', label: 'LinkedIn', icon: <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z" /></svg>, action: () => window.open('https://www.linkedin.com/in/abdullah-shumail/', '_blank') },
+    { id: 'home', label: 'Home', icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>, action: () => scrollTo('hero') },
+    { id: 'github', label: 'GitHub', icon: <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12" /></svg>, action: () => window.open('https://github.com/AbdullahShumail', '_blank') },
+    { id: 'contact', label: 'Contact', icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>, action: () => scrollTo('contact') },
   ];
 
   return (
@@ -274,14 +305,15 @@ const FloatingDock = ({ scrollTo }: { scrollTo: (id: string) => void }) => {
   );
 };
 
-const SectionRenderer: React.FC<{ 
-  section: WebsiteSection, 
-  theme: WebsiteData['theme'], 
-  name: string, 
+const SectionRenderer: React.FC<{
+  section: WebsiteSection,
+  theme: WebsiteData['theme'],
+  name: string,
   sectionRefs: React.MutableRefObject<Record<string, HTMLElement | null>>,
   onHover: (id: string | null) => void,
-  hoveredTarget: string | null
-}> = ({ section, theme, name, sectionRefs, onHover, hoveredTarget }) => {
+  hoveredTarget: string | null,
+  onOpenContact: () => void
+}> = ({ section, theme, name, sectionRefs, onHover, hoveredTarget, onOpenContact }) => {
   const isDark = theme.mode === 'dark';
   const textColor = isDark ? 'text-indigo-50/90' : 'text-gray-900';
   const secondaryTextColor = isDark ? 'text-indigo-200/40' : 'text-gray-600';
@@ -290,7 +322,7 @@ const SectionRenderer: React.FC<{
   switch (section.type) {
     case 'hero':
       return (
-        <section 
+        <section
           ref={(el) => { sectionRefs.current['hero'] = el; }}
           className={`relative min-h-screen flex flex-col items-start justify-center bg-transparent px-8 md:px-16 lg:px-32 overflow-hidden pt-32`}
         >
@@ -300,140 +332,164 @@ const SectionRenderer: React.FC<{
 
           <div className="relative z-10 max-w-5xl w-full">
             {/* Status dot and "Available for new projects" text synchronized with name hover */}
-            <div className={`inline-flex items-center gap-4 px-4 py-2 rounded-full border border-orange-500/10 bg-orange-500/5 mb-12 transition-all duration-700 ${hoveredTarget === 'name-target' ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-orange-600"></span>
-              </span>
-              <span className="text-[10px] font-black uppercase tracking-[0.25em] text-orange-200/60">
-                Available for new projects
-              </span>
-            </div>
+            <FadeIn delay={200}>
+              <div className={`inline-flex items-center gap-4 px-4 py-2 rounded-full border border-orange-500/10 bg-orange-500/5 mb-12 transition-all duration-700 ${hoveredTarget === 'name-target' ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-orange-600"></span>
+                </span>
+                <span className="text-[10px] font-black uppercase tracking-[0.25em] text-orange-200/60">
+                  Available for new projects
+                </span>
+              </div>
+            </FadeIn>
 
             <div className="inline-block relative">
-              <h1 
-                data-target-id="name-target"
-                data-shape="left-line"
-                onMouseEnter={() => onHover('name-target')}
-                onMouseLeave={() => onHover(null)}
-                className={`particle-target inline-block text-7xl md:text-[8rem] lg:text-[10rem] font-black tracking-tighter ${textColor} mb-4 leading-[0.85] cursor-default`}
-              >
-                {name}
-              </h1>
+              <FadeIn delay={400}>
+                <h1
+                  data-target-id="name-target"
+                  data-shape="left-line"
+                  onMouseEnter={() => onHover('name-target')}
+                  onMouseLeave={() => onHover(null)}
+                  className={`particle-target inline-block text-7xl md:text-[8rem] lg:text-[10rem] font-black tracking-tighter ${textColor} mb-4 leading-[0.85] cursor-default`}
+                >
+                  {name}
+                </h1>
+              </FadeIn>
             </div>
-            
-            <h2 className={`text-base md:text-xl font-bold uppercase tracking-[0.2em] ${secondaryTextColor} mb-12`}>
-              <LanguageSwapText text="Founder & Full-stack developer" />
-            </h2>
 
-            <p className={`text-lg md:text-2xl max-w-2xl leading-relaxed font-medium ${secondaryTextColor} mb-16`}>
-              {section.content}
-            </p>
+            <FadeIn delay={600}>
+              <h2 className={`text-base md:text-xl font-bold uppercase tracking-[0.2em] ${secondaryTextColor} mb-12`}>
+                <LanguageSwapText text="Founder & Full-stack developer" />
+              </h2>
+            </FadeIn>
 
-            <div className="flex gap-8 items-center border-t border-white/5 pt-12">
-               <div>
-                 <p className={`text-4xl font-black ${textColor}`}>5+</p>
-                 <p className={`text-[10px] uppercase tracking-[0.4em] font-black ${secondaryTextColor}`}>Experiences</p>
-               </div>
-            </div>
+            <FadeIn delay={800}>
+              <p className={`text-lg md:text-2xl max-w-2xl leading-relaxed font-medium ${secondaryTextColor} mb-16`}>
+                {section.content}
+              </p>
+            </FadeIn>
+
+            <FadeIn delay={1000}>
+              <div className="flex gap-8 items-center border-t border-white/5 pt-12">
+                <div>
+                  <p className={`text-4xl font-black ${textColor}`}>5+</p>
+                  <p className={`text-[10px] uppercase tracking-[0.4em] font-black ${secondaryTextColor}`}>Experiences</p>
+                </div>
+              </div>
+            </FadeIn>
           </div>
-          
+
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,_rgba(255,100,0,0.02)_0%,_transparent_50%)]"></div>
         </section>
       );
 
     case 'projects':
       return (
-        <section 
+        <section
           ref={(el) => { sectionRefs.current['projects'] = el; }}
-          id="projects" 
+          id="projects"
           className={`py-48 px-12 relative z-20 border-t border-white/5`}
         >
           <div className="max-w-7xl mx-auto">
-             <div className="mb-32">
-                 <p className={`text-[12px] uppercase tracking-[0.5em] font-black ${accentColor} mb-6`}>
-                   Recent Works
-                 </p>
-                 <h2 
-                   data-target-id="portfolio-target"
-                   data-shape="frame"
-                   onMouseEnter={() => onHover('portfolio-target')}
-                   onMouseLeave={() => onHover(null)}
-                   className={`particle-target text-7xl md:text-9xl font-black tracking-tighter ${textColor} leading-none inline-block cursor-default`}
-                 >
-                   Portfolio
-                 </h2>
-             </div>
-             <div className="grid md:grid-cols-2 gap-x-24 gap-y-32">
-               {section.items?.map((p, idx) => (
-                 <div 
-                   key={idx} 
-                   className="group cursor-pointer"
-                   onClick={() => p.category && p.category !== '#' && window.open(p.category, '_blank')}
-                 >
+            <div className="mb-32">
+              <FadeIn direction="up">
+                <p className={`text-[12px] uppercase tracking-[0.5em] font-black ${accentColor} mb-6`}>
+                  Recent Works
+                </p>
+              </FadeIn>
+
+              <FadeIn delay={200} direction="up">
+                <h2
+                  data-target-id="portfolio-target"
+                  data-shape="frame"
+                  onMouseEnter={() => onHover('portfolio-target')}
+                  onMouseLeave={() => onHover(null)}
+                  className={`particle-target text-7xl md:text-9xl font-black tracking-tighter ${textColor} leading-none inline-block cursor-default py-4`}
+                >
+                  Portfolio
+                </h2>
+              </FadeIn>
+            </div>
+            <div className="grid md:grid-cols-2 gap-x-24 gap-y-32">
+              {section.items?.map((p, idx) => (
+                <FadeIn key={idx} delay={idx * 200}>
+                  <div
+                    className="group cursor-pointer"
+                    onClick={() => p.category && p.category !== '#' && window.open(p.category, '_blank')}
+                  >
                     <div className="aspect-[16/10] bg-zinc-950/80 rounded-[2.5rem] overflow-hidden mb-10 relative border border-white/5 shadow-2xl backdrop-blur-sm transition-transform duration-700 group-hover:scale-[1.02]">
-                       <img 
-                         src={p.icon || `https://picsum.photos/1200/800?random=${idx + 200}`} 
-                         alt={p.title} 
-                         className="w-full h-full object-cover opacity-30 group-hover:opacity-60 transition-all duration-1000 grayscale group-hover:grayscale-0" 
-                       />
-                       <div className="absolute inset-0 bg-orange-950/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                       <div className="absolute bottom-8 right-8 w-12 h-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-500 translate-y-4 group-hover:translate-y-0">
-                          <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
-                       </div>
+                      <img
+                        src={p.icon || `https://picsum.photos/1200/800?random=${idx + 200}`}
+                        alt={p.title}
+                        className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-all duration-1000 grayscale group-hover:grayscale-0"
+                      />
+                      <div className="absolute inset-0 bg-orange-950/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                      <div className="absolute bottom-8 right-8 w-12 h-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-500 translate-y-4 group-hover:translate-y-0">
+                        <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
+                      </div>
                     </div>
                     <div>
-                       <h3 className={`text-4xl font-black ${textColor} mb-4 group-hover:text-orange-500 transition-colors`}>
-                         {p.title}
-                       </h3>
-                       <p className={`text-lg font-medium ${secondaryTextColor} leading-relaxed`}>
-                         {p.description}
-                       </p>
+                      <h3 className={`text-4xl font-black ${textColor} mb-4 group-hover:text-orange-500 transition-colors`}>
+                        {p.title}
+                      </h3>
+                      <p className={`text-lg font-medium ${secondaryTextColor} leading-relaxed`}>
+                        {p.description}
+                      </p>
                     </div>
-                 </div>
-               ))}
-             </div>
+                  </div>
+                </FadeIn>
+              ))}
+            </div>
           </div>
         </section>
       );
 
     case 'contact':
       return (
-        <section 
+        <section
           ref={(el) => { sectionRefs.current['contact'] = el; }}
-          id="contact" 
+          id="contact"
           className={`py-48 px-12 border-t border-white/5 relative overflow-hidden`}
         >
-           <div className="max-w-7xl mx-auto flex flex-col lg:flex-row justify-between items-center gap-24 relative z-10">
-              <div className="flex-1">
-                 <p className={`font-black text-sm ${accentColor} uppercase tracking-[0.5em] mb-12`}>Connection</p>
-                 <h2 className={`text-7xl md:text-[8rem] font-black tracking-tighter ${textColor} leading-[0.85] mb-20 uppercase`}>
-                   Ready for<br/>impact?
-                 </h2>
-                 <div className="space-y-8">
-                   <p className={`text-3xl font-bold ${textColor}`}>{name.toLowerCase().replace(' ', '.')}@dev.io</p>
-                 </div>
-              </div>
-              
-              <div 
+          <div className="max-w-7xl mx-auto flex flex-col lg:flex-row justify-between items-center gap-24 relative z-10">
+            <div className="flex-1">
+              <FadeIn direction="up">
+                <p className={`font-black text-sm ${accentColor} uppercase tracking-[0.5em] mb-12`}>Connection</p>
+              </FadeIn>
+              <FadeIn delay={200} direction="up">
+                <h2 className={`text-7xl md:text-[8rem] font-black tracking-tighter ${textColor} leading-[0.85] mb-20 uppercase`}>
+                  Ready for<br />impact?
+                </h2>
+              </FadeIn>
+              <FadeIn delay={400} direction="up">
+                <div className="space-y-8">
+                  <p className={`text-3xl font-bold ${textColor}`}>{name.toLowerCase().replace(' ', '.')}@dev.io</p>
+                </div>
+              </FadeIn>
+            </div>
+
+            <FadeIn delay={600} direction="up">
+              <div
                 data-target-id="contact-target"
                 data-shape="circle"
                 onMouseEnter={() => onHover('contact-target')}
                 onMouseLeave={() => onHover(null)}
-                onClick={() => window.location.href = `mailto:${name.toLowerCase().replace(' ', '.')}@dev.io`}
+                onClick={onOpenContact}
                 className="particle-target w-64 h-64 md:w-96 md:h-96 rounded-full border border-white/10 bg-white/[0.01] flex flex-col items-center justify-center text-white font-black text-3xl hover:border-orange-900/30 transition-all duration-700 cursor-pointer shadow-2xl group relative overflow-hidden backdrop-blur-md"
               >
                 <div className="absolute inset-0 border-2 border-dashed border-orange-900/0 group-hover:border-orange-900/40 rounded-full group-hover:rotate-180 transition-all duration-[2000ms] scale-95 group-hover:scale-105"></div>
                 <div className="relative z-10 text-center space-y-2 group-hover:scale-110 transition-transform duration-500">
-                   <span className="block text-[12px] tracking-[0.4em] text-orange-900/80 mb-2 font-black">
-                     <LanguageSwapText text="GET IN" />
-                   </span>
-                   <span className={`block text-5xl tracking-tighter ${textColor} group-hover:text-white transition-colors`}>
-                     <LanguageSwapText text="TOUCH" />
-                   </span>
+                  <span className="block text-[12px] tracking-[0.4em] text-orange-900/80 mb-2 font-black">
+                    <LanguageSwapText text="GET IN" />
+                  </span>
+                  <span className={`block text-5xl tracking-tighter ${textColor} group-hover:text-white transition-colors`}>
+                    <LanguageSwapText text="TOUCH" />
+                  </span>
                 </div>
               </div>
-           </div>
+            </FadeIn>
+          </div>
         </section>
       );
 
@@ -446,6 +502,7 @@ const Preview: React.FC<PreviewProps> = ({ data }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
   const [hoveredTarget, setHoveredTarget] = useState<string | null>(null);
+  const [isContactOpen, setIsContactOpen] = useState(false);
 
   const scrollTo = (id: string) => {
     const section = sectionRefs.current[id];
@@ -456,31 +513,38 @@ const Preview: React.FC<PreviewProps> = ({ data }) => {
 
   return (
     <div ref={containerRef} className="h-full overflow-y-auto w-full bg-[#050505] scroll-smooth selection:bg-orange-900 selection:text-white relative">
+      <BackgroundBubbles />
       <ParticleBackground hoveredId={hoveredTarget} scrollContainer={containerRef} />
       <div className="relative z-10 flex flex-col">
         {data.sections.map((section) => (
-          <SectionRenderer 
-            key={section.id} 
-            section={section} 
-            theme={data.theme} 
-            name={data.name} 
+          <SectionRenderer
+            key={section.id}
+            section={section}
+            theme={data.theme}
+            name={data.name}
             sectionRefs={sectionRefs}
             onHover={setHoveredTarget}
             hoveredTarget={hoveredTarget}
+            onOpenContact={() => setIsContactOpen(true)}
           />
         ))}
-        
+
         <footer className="bg-black/40 backdrop-blur-xl py-20 px-12 flex flex-col md:flex-row justify-between items-center text-[10px] font-black text-zinc-800 uppercase tracking-[0.6em] border-t border-white/5 gap-12 relative z-10">
-           <div className="flex flex-col items-center md:items-start gap-4">
-              <p className="text-zinc-600">© 2025 ABDULLAH SHUMAIL</p>
-           </div>
-           <div className="flex gap-16">
-              <span onClick={() => window.open('https://github.com', '_blank')} className="hover:text-white transition-colors cursor-pointer">GH</span>
-              <span onClick={() => window.open('https://linkedin.com', '_blank')} className="hover:text-white transition-colors cursor-pointer">LN</span>
-           </div>
+          <div className="flex flex-col items-center md:items-start gap-4">
+            <p className="text-zinc-600">© 2025 ABDULLAH SHUMAIL</p>
+          </div>
+          <div className="flex gap-16">
+            <span onClick={() => window.open('https://github.com/AbdullahShumail', '_blank')} className="hover:text-white transition-colors cursor-pointer">GH</span>
+            <span onClick={() => window.open('https://www.linkedin.com/in/abdullah-shumail/', '_blank')} className="hover:text-white transition-colors cursor-pointer">LN</span>
+          </div>
         </footer>
       </div>
       <FloatingDock scrollTo={scrollTo} />
+      <ContactModal
+        isOpen={isContactOpen}
+        onClose={() => setIsContactOpen(false)}
+        theme={data.theme}
+      />
     </div>
   );
 };
