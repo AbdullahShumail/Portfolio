@@ -1,72 +1,84 @@
-import React, { useState } from 'react';
-import { WebsiteData } from './types';
-import Preview from './components/Preview';
+import React, { useCallback, useEffect, useState } from 'react';
 
-const INITIAL_WEBSITE: WebsiteData = {
-  name: "Abdullah Shumail",
-  tagline: "Founder & Full-stack developer",
-  theme: {
-    primaryColor: "#ffffff",
-    secondaryColor: "#101010",
-    fontFamily: "Inter",
-    borderRadius: "2rem",
-    mode: "dark"
-  },
-  sections: [
-    {
-      id: "hero-1",
-      type: "hero",
-      title: "Abdullah Shumail",
-      content: "Building advanced, reliable, and transformative AI products for forward-thinking businesses.",
-      imageUrl: "https://i.postimg.cc/85zK2Z0H/abdullah-suit.png"
-    },
-    {
-      id: "projects-1",
-      type: "projects",
-      title: "Selected Works",
-      content: "A compilation of projects reflecting digital innovation and craft.",
-      items: [
-        {
-          title: "Nxera AI",
-          description: "A leading-edge software solutions partner building scalable websites and modern mobile apps.",
-          icon: "/nxera.png",
-          category: "https://www.nxera.io/"
-        },
-        {
-          title: "Zafran Ullah Research",
-          description: "Scientific portfolio and research portal for microbiology and molecular biology research.",
-          icon: "/zafran.png",
-          category: "https://zafranktk.com/"
-        },
-        {
-          title: "ObliQ",
-          description: "AI idea generator",
-          icon: "/obliq.png",
-          category: "https://obliq.netlify.app/"
-        },
-        {
-          title: "Logicify Edu",
-          description: "Scalable EdTech platform for custom learning paths and educational metrics.",
-          icon: "https://images.unsplash.com/photo-1501504905252-473c47e087f8?q=80&w=2000&auto=format&fit=crop",
-          category: "#"
-        }
-      ]
-    },
-    {
-      id: "contact-1",
-      type: "contact",
-      title: "Let's Talk",
-      content: "Got a project in mind? Let's collaborate and build something amazing together."
-    }
-  ]
-};
+import ContactModal from './components/ContactModal';
+import { Dock, NAV_TARGETS, TopBar } from './components/Navigation';
+import { heroState } from './lib/heroState';
+
+import Contact from './components/sections/Contact';
+import Footer from './components/sections/Footer';
+import Hero from './components/sections/Hero';
+import Stack from './components/sections/Stack';
+import Work from './components/sections/Work';
 
 const App: React.FC = () => {
-  const [websiteData] = useState<WebsiteData>(INITIAL_WEBSITE);
+  const [ready, setReady] = useState(false);
+  const [target, setTarget] = useState<string | null>(null);
+  const [active, setActive] = useState('top');
+  const [contactOpen, setContactOpen] = useState(false);
+
+  // One frame after mount so the hero reveal has something to transition from.
+  useEffect(() => {
+    const t = window.setTimeout(() => setReady(true), 80);
+    return () => window.clearTimeout(t);
+  }, []);
+
+  /**
+   * Which dock item is active. While the hero fills the viewport the answer
+   * comes from the 3D beat (about and capabilities live inside it); once the
+   * page has scrolled past, it comes from whichever section sits under the
+   * top third of the screen. Polled on rAF because the hero's inner scroll
+   * never fires a window scroll event; setState only when the answer changes.
+   */
+  useEffect(() => {
+    const ids = NAV_TARGETS.filter((n) => n.seek === undefined && n.id !== 'top').map((n) => n.id);
+    let raf = 0;
+    let last = '';
+
+    const tick = () => {
+      raf = requestAnimationFrame(tick);
+      let current = 'top';
+
+      if (window.scrollY < window.innerHeight * 0.6) {
+        if (heroState.stage === 2) current = 'profile';
+        else if (heroState.stage === 3) current = 'capabilities';
+      } else {
+        const line = window.innerHeight * 0.34;
+        for (const id of ids) {
+          const el = document.getElementById(id);
+          if (el && el.getBoundingClientRect().top <= line) current = id;
+        }
+      }
+
+      if (current !== last) {
+        last = current;
+        setActive(current);
+      }
+    };
+
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
+  const openContact = useCallback(() => setContactOpen(true), []);
+  const closeContact = useCallback(() => setContactOpen(false), []);
 
   return (
-    <div className="h-screen w-screen overflow-hidden bg-[#050505]">
-      <Preview data={websiteData} />
+    <div className="relative min-h-screen bg-obsidian">
+      <div className="relative z-10">
+        <TopBar onContact={openContact} />
+
+        <main>
+          <Hero ready={ready} onContact={openContact} />
+          <Work onTarget={setTarget} />
+          <Stack />
+          <Contact onTarget={setTarget} onOpen={openContact} />
+        </main>
+
+        <Footer />
+      </div>
+
+      <Dock active={active} />
+      <ContactModal isOpen={contactOpen} onClose={closeContact} />
     </div>
   );
 };

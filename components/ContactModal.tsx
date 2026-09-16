@@ -1,150 +1,246 @@
-import React, { useState } from 'react';
-import { supabase } from '../supabaseClient';
-import { WebsiteData } from '../types';
+import React, { useEffect, useRef, useState } from 'react';
+import { isContactFormEnabled, supabase } from '../supabaseClient';
+import { SITE } from '../data/site';
 
 interface ContactModalProps {
-    isOpen: boolean;
-    onClose: () => void;
-    theme: WebsiteData['theme'];
+  isOpen: boolean;
+  onClose: () => void;
 }
 
-const ContactModal: React.FC<ContactModalProps> = ({ isOpen, onClose, theme }) => {
-    const [name, setName] = useState('');
-    const [email, setEmail] = useState('');
-    const [details, setDetails] = useState('');
-    const [isSubmitting, setIsSubmitting] = useState(false);
-    const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
+type Status = 'idle' | 'sending' | 'success' | 'error';
 
-    if (!isOpen) return null;
+const FIELD =
+  'w-full rounded-xl border border-bone/10 bg-bone/[0.03] px-4 py-3.5 text-sm text-bone placeholder:text-bone/25 outline-none transition-colors duration-300 focus:border-bone/35 focus:bg-bone/[0.05]';
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setIsSubmitting(true);
-        setStatus('idle');
+const LABEL = 'mb-2 block font-mono text-[9px] uppercase tracking-[0.24em] text-bone/40';
 
-        try {
-            const { error } = await supabase
-                .from('quotes')
-                .insert([{ name, email, project_details: details }]);
+const ContactModal: React.FC<ContactModalProps> = ({ isOpen, onClose }) => {
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [details, setDetails] = useState('');
+  const [status, setStatus] = useState<Status>('idle');
+  const [errorMsg, setErrorMsg] = useState('');
+  const firstFieldRef = useRef<HTMLInputElement>(null);
 
-            if (error) throw error;
+  useEffect(() => {
+    if (!isOpen) return undefined;
 
-            setStatus('success');
-            setTimeout(() => {
-                onClose();
-                setName('');
-                setEmail('');
-                setDetails('');
-                setStatus('idle');
-            }, 2000);
-        } catch (error) {
-            console.error('Error sending quote:', error);
-            setStatus('error');
-        } finally {
-            setIsSubmitting(false);
-        }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
     };
+    window.addEventListener('keydown', onKey);
 
-    const isDark = theme.mode === 'dark';
-    const bgColor = isDark ? 'bg-zinc-900' : 'bg-white';
-    const textColor = isDark ? 'text-white' : 'text-zinc-900';
-    const inputBg = isDark ? 'bg-zinc-800' : 'bg-zinc-100';
-    const borderColor = isDark ? 'border-zinc-700' : 'border-zinc-200';
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const focusTimer = window.setTimeout(() => firstFieldRef.current?.focus(), 120);
 
-    return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-            <div
-                className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
-                onClick={onClose}
-            />
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prev;
+      window.clearTimeout(focusTimer);
+    };
+  }, [isOpen, onClose]);
 
-            <div className={`relative w-full max-w-lg ${bgColor} rounded-2xl p-8 shadow-2xl transform transition-all scale-100 opacity-100 border ${borderColor}`}>
-                <button
-                    onClick={onClose}
-                    className={`absolute top-4 right-4 p-2 rounded-full hover:bg-zinc-800/50 transition-colors ${textColor}`}
-                >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                </button>
+  if (!isOpen) return null;
 
-                <h2 className={`text-3xl font-black tracking-tight mb-2 ${textColor}`}>
-                    Let's build together
-                </h2>
-                <p className={`mb-8 ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>
-                    Tell me about your project and I'll get back to you with a quote.
-                </p>
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setStatus('sending');
+    setErrorMsg('');
 
-                {status === 'success' ? (
-                    <div className="flex flex-col items-center justify-center py-12 text-center animate-in fade-in zoom-in duration-300">
-                        <div className="w-16 h-16 bg-green-500/10 rounded-full flex items-center justify-center mb-4">
-                            <svg className="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" /></svg>
-                        </div>
-                        <h3 className={`text-xl font-bold ${textColor} mb-2`}>Message Sent!</h3>
-                        <p className="text-zinc-400">I'll be in touch shortly.</p>
-                    </div>
-                ) : (
-                    <form onSubmit={handleSubmit} className="space-y-4">
-                        <div>
-                            <label className={`block text-sm font-medium mb-1.5 ${textColor}`}>Name</label>
-                            <input
-                                type="text"
-                                required
-                                value={name}
-                                onChange={(e) => setName(e.target.value)}
-                                className={`w-full px-4 py-3 rounded-xl ${inputBg} ${borderColor} border focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 outline-none transition-all ${textColor}`}
-                                placeholder="John Doe"
-                            />
-                        </div>
+    try {
+      if (!supabase) throw new Error('The contact form is not configured right now.');
 
-                        <div>
-                            <label className={`block text-sm font-medium mb-1.5 ${textColor}`}>Email</label>
-                            <input
-                                type="email"
-                                required
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                className={`w-full px-4 py-3 rounded-xl ${inputBg} ${borderColor} border focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 outline-none transition-all ${textColor}`}
-                                placeholder="john@example.com"
-                            />
-                        </div>
+      const { error } = await supabase
+        .from('quotes')
+        .insert([{ name, email, project_details: details }]);
 
-                        <div>
-                            <label className={`block text-sm font-medium mb-1.5 ${textColor}`}>Project Details</label>
-                            <textarea
-                                required
-                                value={details}
-                                onChange={(e) => setDetails(e.target.value)}
-                                rows={4}
-                                className={`w-full px-4 py-3 rounded-xl ${inputBg} ${borderColor} border focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 outline-none transition-all resize-none ${textColor}`}
-                                placeholder="I need a website for..."
-                            />
-                        </div>
+      if (error) throw error;
 
-                        {status === 'error' && (
-                            <p className="text-red-500 text-sm bg-red-500/10 p-3 rounded-lg">
-                                Something went wrong. Please try again.
-                            </p>
-                        )}
+      setStatus('success');
+      window.setTimeout(() => {
+        onClose();
+        setName('');
+        setEmail('');
+        setDetails('');
+        setStatus('idle');
+      }, 2200);
+    } catch (err) {
+      console.error('Error sending quote:', err);
+      setErrorMsg(
+        err instanceof Error ? err.message : 'Something went wrong. Please try again.'
+      );
+      setStatus('error');
+    }
+  };
 
-                        <button
-                            type="submit"
-                            disabled={isSubmitting}
-                            className={`w-full py-4 rounded-xl font-bold text-white bg-orange-600 hover:bg-orange-500 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed mt-4 flex items-center justify-center gap-2`}
-                        >
-                            {isSubmitting ? (
-                                <>
-                                    <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                    </svg>
-                                    Sending...
-                                </>
-                            ) : 'Send Request'}
-                        </button>
-                    </form>
-                )}
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Start a project"
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+    >
+      <button
+        type="button"
+        aria-label="Close"
+        onClick={onClose}
+        className="absolute inset-0 cursor-default bg-obsidian/80 backdrop-blur-md"
+        style={{ animation: 'fade-in 320ms ease-out' }}
+      />
+
+      <div
+        className="relative w-full max-w-xl overflow-hidden rounded-2xl border border-bone/10 bg-ink p-7 shadow-[0_40px_120px_-30px_rgba(0,0,0,1)] md:p-10"
+        style={{ animation: 'modal-in 480ms cubic-bezier(0.16,1,0.3,1)' }}
+      >
+        <div
+          className="pointer-events-none absolute -left-20 -top-20 h-56 w-56 rounded-full bg-bone/[0.06] blur-[70px]"
+          aria-hidden="true"
+        />
+        <div
+          className="pointer-events-none absolute -bottom-24 -right-16 h-56 w-56 rounded-full bg-bone/[0.05] blur-[80px]"
+          aria-hidden="true"
+        />
+
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close dialog"
+          className="absolute right-5 top-5 z-10 flex h-9 w-9 items-center justify-center rounded-full border border-bone/10 text-bone/50 transition-colors duration-300 hover:border-bone/25 hover:text-bone"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4">
+            <path strokeLinecap="round" d="M6 6l12 12M18 6L6 18" />
+          </svg>
+        </button>
+
+        <div className="relative z-10">
+          {status === 'success' ? (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-full border border-bone/25 bg-bone/[0.06]">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-7 w-7 text-bone/80">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="m5 13 4 4L19 7" />
+                </svg>
+              </div>
+              <h3 className="font-display text-xl font-light tracking-tight text-bone">
+                Message received
+              </h3>
+              <p className="mt-2 text-sm text-bone/45">I will be in touch shortly.</p>
             </div>
+          ) : (
+            <>
+              <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-bone/35">
+                [ New enquiry ]
+              </p>
+              <h2 className="mt-4 font-display text-2xl font-light leading-tight tracking-tight text-bone md:text-3xl">
+                Let's build something
+                <br />
+                <span className="text-bone/55">worth shipping</span>.
+              </h2>
+              <p className="mt-4 text-sm leading-relaxed text-bone/45">
+                A few lines is enough. I will reply from {SITE.email}.
+              </p>
+
+              {!isContactFormEnabled ? (
+                <a
+                  href={'mailto:' + SITE.email}
+                  className="mt-6 flex items-center justify-between gap-4 rounded-xl border border-bone/20 bg-bone/[0.05] px-4 py-3.5 text-sm text-bone/75 transition-colors hover:border-bone/35"
+                >
+                  <span>The form is offline. Email me directly instead.</span>
+                  <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-bone/80">
+                    Open mail
+                  </span>
+                </a>
+              ) : null}
+
+              <form onSubmit={handleSubmit} className="mt-9 space-y-5">
+                <div className="grid gap-5 sm:grid-cols-2">
+                  <div>
+                    <label htmlFor="cm-name" className={LABEL}>
+                      Name
+                    </label>
+                    <input
+                      id="cm-name"
+                      ref={firstFieldRef}
+                      type="text"
+                      required
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      className={FIELD}
+                      placeholder="Your name"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="cm-email" className={LABEL}>
+                      Email
+                    </label>
+                    <input
+                      id="cm-email"
+                      type="email"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className={FIELD}
+                      placeholder="you@company.com"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label htmlFor="cm-details" className={LABEL}>
+                    What are you building?
+                  </label>
+                  <textarea
+                    id="cm-details"
+                    required
+                    rows={4}
+                    value={details}
+                    onChange={(e) => setDetails(e.target.value)}
+                    className={FIELD + ' resize-none'}
+                    placeholder="A rough shape of the project, the timeline, anything already decided..."
+                  />
+                </div>
+
+                {status === 'error' ? (
+                  <p className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-xs text-red-300">
+                    {errorMsg}
+                  </p>
+                ) : null}
+
+                <button
+                  type="submit"
+                  disabled={status === 'sending'}
+                  className="group relative mt-2 flex w-full items-center justify-center gap-3 overflow-hidden rounded-xl bg-bone py-4 font-mono text-[10px] uppercase tracking-[0.26em] text-obsidian transition-opacity disabled:opacity-50"
+                >
+                  <span className="relative z-10">
+                    {status === 'sending' ? 'Sending' : 'Send enquiry'}
+                  </span>
+                  {status === 'sending' ? (
+                    <svg className="relative z-10 h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeOpacity="0.25" strokeWidth="3" />
+                      <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+                    </svg>
+                  ) : (
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="relative z-10 h-3.5 w-3.5 transition-transform duration-500 group-hover:translate-x-1">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14m-6-6 6 6-6 6" />
+                    </svg>
+                  )}
+                  <span className="absolute inset-0 -translate-x-full bg-bone/70 transition-transform duration-500 group-hover:translate-x-0" />
+                </button>
+              </form>
+            </>
+          )}
         </div>
-    );
+
+        <style>{`
+          @keyframes fade-in { from { opacity: 0 } to { opacity: 1 } }
+          @keyframes modal-in {
+            from { opacity: 0; transform: translateY(22px) scale(0.97) }
+            to { opacity: 1; transform: translateY(0) scale(1) }
+          }
+        `}</style>
+      </div>
+    </div>
+  );
 };
 
 export default ContactModal;
