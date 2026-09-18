@@ -25,3 +25,7 @@ dist-ssr
 
 # raw 3D source assets, never shipped
 _source/
+
+# raw Sketchfab signal models, not yet integrated; compress before use
+public/signals/
+public/signals_set/

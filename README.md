@@ -42,60 +42,62 @@ the plain ground, which still reads as intentional.
 ## Structure
 
 ```
-App.tsx                     section assembly, active-section tracking
+App.tsx                     canvas + overlay; the whole page is the 3D scroll
 data/site.ts                all content
-types.ts                    content model
-lib/cameraPath.ts           the five camera beats and the two Catmull-Rom curves
-lib/heroState.ts            mutable bridge from the render loop to the DOM overlay
+lib/scrollState.ts          mutable bridge: offset, carZ, speed, section, seek
+lib/sequence.ts             the drive: car z, camera, signals, all vs offset
 components/
-  car/CarScene.tsx          Canvas, ScrollControls, lighting, environment, shadows
-  car/CarModel.tsx          useGLTF + useAnimations, centring, material pass
-  car/CameraRig.tsx         useScroll -> curves -> maath damping -> camera
-  car/Loading.tsx           progress line while the model streams
-  NeuralField.tsx           (unmounted) particle canvas, kept for reference
-  AuroraOrbs.tsx            (unmounted) the old background glow
-  Reveal.tsx                scroll reveal
-  TypeFX.tsx                per-character headline reveal
-  Navigation.tsx            top bar and dock
-  SectionHead.tsx           shared section eyebrow
-  ContactModal.tsx          enquiry form
-  sections/                 Hero, Profile, Capabilities, Work, Stack,
-                            Contact, Footer
+  Overlay.tsx               nav buttons, hero copy, contact panel, progress
+  ContactForm.tsx           the enquiry form (Supabase, mailto fallback)
+  TypeFX.tsx                per-character name reveal
+  car/CarScene.tsx          Canvas, ScrollControls, lighting, fog, card layer
+  car/Car.tsx               the moving group: model + contact shadow
+  car/CarModel.tsx          useGLTF, centring, materials, the wheel rig
+  car/CameraRig.tsx         director: reads useScroll, follows, releases
+  car/Signals.tsx           procedural traffic signals + Html project cards
+  car/Lamp.tsx              follow-spot on the car
 ```
 
-## The 3D hero
+## The drive
 
-`public/car/car.glb` is a 1975 Porsche 911 (930) Turbo by Lionsharp Studios,
-CC BY 4.0, credited in the footer. The Sketchfab export was 74 MB; it is
-packed to 3.1 MB with glTF-Transform (meshopt geometry, WebP textures capped at
-1024px, hierarchy flattened and meshes joined). Clearcoat, specular and
-transmission extensions survive. The raw download lives in `_source/`, which is
-gitignored and never shipped.
+One `ScrollControls` container is the page. `useScroll().offset` runs 0 to 1
+across `PAGES` viewport-heights; the nav buttons call `scroll.el.scrollTo`, so
+wheel and buttons drive identical animation.
 
-The hero is a 100vh section. The canvas fills it; the copy is overlaid on the
-left with `pointer-events: none`, so the wheel falls through to drei's
-`ScrollControls`, which owns scroll for four viewport-heights and then hands off
-to the page. `useScroll().offset` runs 0 to 1 across that range and drives the
-camera along two centripetal Catmull-Rom curves (position and look-at) through
-five authored beats: overview, front wheel, bonnet, rear, beauty shot. Both are
-damped with `maath/easing` so the lens arrives rather than snaps.
+```
+0.00 - 0.08  hero      car parked right, name left
+0.08 - 0.26  beats     car stays parked; camera takes its turns: front wheel,
+                       over the bonnet, the rear deck
+0.26 - 0.40  drive     pulls away through a set of signals; each flips green
+0.40 - 0.84  projects  four signals rise in one by one, each with an Html card
+0.84 - 1.00  exit      car accelerates into the fog; camera holds; contact
+```
 
-Beats are authored against the model after centring: wheels on y = 0, box
-centre at the origin, front facing +Z. Edit them in `lib/cameraPath.ts`. Open
-the dev server with `?debug` for an axes helper, an origin marker and a marker
-at the opening look-at, and read `window.__hero` in the console for the live
-camera state.
+Everything is authored in `lib/sequence.ts` against offset: the car's z, the
+camera's position and look-at relative to the car, fov, and where every signal
+stands. All motion is damped with `maath/easing` in `useFrame`.
 
-Two things that cost real time and are worth knowing:
+Three things that cost real time:
 
-- `Box3.setFromObject` must be called with `precise = true` on this model. The
-  optimised export bakes a large rotation into every node, and the default path
-  transforms each local box's corners rather than its vertices, which inflated
-  the height from 1.9 to 3.9 units and floated the car a metre off the ground.
-- Headless Chrome renders on SwiftShader at a few frames per second, and the
-  damping uses a clamped `dt`, so a camera move that settles in half a second on
-  real hardware takes ten to fifteen seconds under a screenshot harness. Sample
-  generously before concluding a beat is wrong.
+- **Front wheels wobbled.** The model's front wheels are steered about 18
+  degrees. Spinning them about world X rolled them off-axis. Each wheel's axle
+  is now measured from its tyre geometry (thinnest bounding-box axis, rotated
+  by the mesh's world orientation) and the spin group is aligned to it.
+- **`Box3.setFromObject` needs `precise: true`** on this model, or the flattened
+  export's baked rotations inflate the box to twice the car's height.
+- **drei's `Html` mounts inside the ScrollControls container**, which scrolls,
+  so cards drifted off screen. They are portalled into a fixed layer beside
+  the canvas instead.
+- **The `city` environment preset fetches a 1.5 MB HDR from a third-party
+  CDN** and suspends the scene until it lands, which is why the car took so
+  long to appear. The environment is now rendered from `Lightformer`
+  softboxes in one frame, with no network. The model is `<link rel=preload>`ed
+  from `index.html` and the 3D chunk's import starts at module load, so both
+  are downloading before React mounts anything.
 
-The particle field and aurora orbs are no longer rendered but the files remain
-in `components/` in case the earlier background is wanted back.
+Also: looking down +Z, world +X is screen-left. Cards on the +X verge extend
+left, away from the road.
+
+The model is a 1975 Porsche 911 (930) Turbo by Lionsharp Studios, CC BY 4.0,
+credited in the contact panel. 74 MB from Sketchfab, packed to 3 MB with
+glTF-Transform; the raw download is in gitignored `_source/`.

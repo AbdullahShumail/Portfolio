@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import { SpotLight } from '@react-three/drei';
 import { easing } from 'maath';
-import { heroState } from '../../lib/heroState';
+import { scrollState } from '../../lib/scrollState';
 
 const _want = new THREE.Vector3();
 
@@ -36,7 +36,7 @@ const Lamp: React.FC<{ quality: 'high' | 'low' }> = ({ quality }) => {
 
     // Aim at the current look-at. Lag a little behind the camera so the beam
     // visibly arrives on the subject a beat after the lens does.
-    _want.set(heroState.tgtX, 0.9, heroState.tgtZ);
+    _want.set(0, 0.9, scrollState.carZ + 0.4);
     easing.damp3(aim.current, _want, 0.35, dt);
     target.position.copy(aim.current);
     target.updateMatrixWorld();

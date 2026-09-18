@@ -3,120 +3,134 @@ import * as THREE from 'three';
 import { useFrame, useThree } from '@react-three/fiber';
 import { useScroll } from '@react-three/drei';
 import { easing } from 'maath';
-import {
-  beatsTopDown,
-  carSideAt,
-  fovAt,
-  pathTopDown,
-  positionCurve,
-  progressToU,
-  stageAt,
-  targetCurve,
-} from '../../lib/cameraPath';
-import { heroState } from '../../lib/heroState';
+import { RELEASE_AT, camRelAt, carZAt, fovAt, lookRelAt, sectionAt, sideAt } from '../../lib/sequence';
+import { scrollState, smoothstep } from '../../lib/scrollState';
 
-// Scratch vectors, allocated once. Allocating inside useFrame hands the GC a
-// stutter at 60fps.
-const _pos = new THREE.Vector3();
-const _tgt = new THREE.Vector3();
+// Scratch vectors, allocated once.
+const _rel = new THREE.Vector3();
+const _look = new THREE.Vector3();
+const _want = new THREE.Vector3();
+const _wantLook = new THREE.Vector3();
+const _car = new THREE.Vector3();
 
-/** How far the car slides as a fraction of the viewport width, per unit carSide. */
+/** How far the car slides as a fraction of viewport width, per unit side. */
 const SIDE_SHIFT = 0.19;
 
 /**
- * Drives the camera from scroll.
+ * Director + camera.
  *
- * Every frame: read the damped ScrollControls offset, map it onto the two
- * Catmull-Rom curves, and damp the camera toward the sampled position and
- * look-at target. Two layers of smoothing on purpose. ScrollControls damps
- * the offset so a flick keeps coasting; maath damps the camera so it always
- * arrives at a framing and never snaps to one.
+ * Runs at priority -1 so it samples the scroll before anything else in the
+ * frame reads it. Writes scrollState.offset, installs `seek` for the buttons
+ * (they scroll the same container the wheel does, so the 3D stays in sync
+ * either way), and drives the camera:
  *
- * The car's screen side is a camera view offset, damped separately. The
- * authored beats never move; the window onto them slides left and right so
- * the copy can take whichever half the car has vacated.
+ *   following   position = car + rel(offset), look = car + look(offset)
+ *   released    once the exit starts the camera holds its world position
+ *               and only its look-at keeps tracking the car as it leaves
+ *
+ * Everything is damped with maath so a framing is always arrived at, never
+ * snapped to.
  */
 const CameraRig: React.FC = () => {
   const scroll = useScroll();
   const camera = useThree((s) => s.camera) as THREE.PerspectiveCamera;
   const size = useThree((s) => s.size);
 
-  // The look-at point is damped separately from the position, otherwise the
-  // lens whips when the target jumps from the tyre to the bonnet.
   const lookAt = useRef(new THREE.Vector3(0, 0.8, 0.2));
   const fov = useRef(34);
   const side = useRef(1);
+  const held = useRef<THREE.Vector3 | null>(null);
 
-  // Publish the route once for the overlay's minimap, and install seek so the
-  // dock can jump the hero to a beat.
   useEffect(() => {
-    heroState.pathXZ = pathTopDown();
-    heroState.beatXZ = beatsTopDown();
     const el = scroll.el;
-    heroState.seek = (offset: number) => {
+    scrollState.el = el;
+    scrollState.seek = (offset: number) => {
       const max = el.scrollHeight - el.clientHeight;
       el.scrollTo({ top: max * Math.min(1, Math.max(0, offset)), behavior: 'smooth' });
     };
+
+    /**
+     * The wheel only scrolls drei's container when the pointer is over it.
+     * Over anything else on top (the copy, a button, a project card, the
+     * dock) the browser finds no scrollable ancestor and nothing happens,
+     * which read as "sometimes it does not scroll". Forward those wheels.
+     */
+    const onWheel = (e: WheelEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (!t || el.contains(t)) return;
+      if (t.closest('textarea, select, [data-own-scroll]')) return;
+      el.scrollBy({ top: e.deltaY, left: 0, behavior: 'auto' });
+    };
+    window.addEventListener('wheel', onWheel, { passive: true });
+
     return () => {
-      heroState.seek = null;
+      window.removeEventListener('wheel', onWheel);
+      scrollState.seek = null;
+      scrollState.el = null;
     };
   }, [scroll.el]);
 
   useFrame((_, delta) => {
     const dt = Math.min(delta, 1 / 30);
-    const offset = scroll.offset;
+    const o = scroll.offset;
+    scrollState.offset = o;
+    scrollState.section = sectionAt(o);
 
-    const u = progressToU(offset);
-    positionCurve.getPoint(u, _pos);
-    targetCurve.getPoint(u, _tgt);
+    // Use the authored car position, not the damped one, so the camera and
+    // the car answer to the same clock and never chase each other.
+    _car.set(0, 0, carZAt(o));
 
-    // Portrait screens lose horizontal field of view, so the same beat that
-    // frames the car on a laptop crops it on a phone. Pull the camera back
-    // along its own line of sight; the composition survives, only the scale
-    // changes.
+    camRelAt(o, _rel);
+    lookRelAt(o, _look);
+    _want.copy(_car).add(_rel);
+    _wantLook.copy(_car).add(_look);
+
+    // Portrait: pull back along the line of sight so the car still fits.
     const aspect = size.width / size.height;
     const wide = size.width > 900;
     if (aspect < 0.9) {
       const pull = 1.35 + (0.9 - aspect) * 1.2;
-      _pos.sub(_tgt).multiplyScalar(pull).add(_tgt);
+      _want.sub(_wantLook).multiplyScalar(pull).add(_wantLook);
     }
 
-    easing.damp3(camera.position, _pos, 0.22, dt);
-    easing.damp3(lookAt.current, _tgt, 0.22, dt);
+    // Release: past RELEASE_AT the camera blends onto the authored framing at
+    // the moment of release and stays there, so it is the same fixed vantage
+    // whether the reader scrolled here or jumped by button. The look-at is
+    // left alone so we watch the car drive away.
+    const release = smoothstep(RELEASE_AT, RELEASE_AT + 0.05, o);
+    if (release > 0) {
+      if (!held.current) {
+        held.current = new THREE.Vector3(0, 0, carZAt(RELEASE_AT)).add(camRelAt(RELEASE_AT, _rel));
+      }
+      _want.lerp(held.current, release);
+    }
+
+    easing.damp3(camera.position, _want, 0.28, dt);
+    easing.damp3(lookAt.current, _wantLook, 0.24, dt);
     camera.lookAt(lookAt.current);
 
-    // ---- which half of the screen the car sits on --------------------------
-    side.current = THREE.MathUtils.damp(side.current, carSideAt(offset), 3.2, dt);
+    // Which half of the screen the car occupies. Hero only; centred after.
+    side.current = THREE.MathUtils.damp(side.current, sideAt(o), 3, dt);
     const x = wide ? -side.current * SIDE_SHIFT * size.width : 0;
-    const y = wide ? 0 : -size.height * 0.2;
+    const y = wide ? 0 : -size.height * 0.18;
     camera.setViewOffset(size.width, size.height, x, y, size.width, size.height);
 
-    const wantFov = fovAt(offset);
-    fov.current = THREE.MathUtils.damp(fov.current, wantFov, 4, dt);
+    fov.current = THREE.MathUtils.damp(fov.current, fovAt(o), 4, dt);
     camera.fov = fov.current;
     camera.updateProjectionMatrix();
 
-    heroState.offset = offset;
-    heroState.stage = stageAt(offset);
-    heroState.camX = camera.position.x;
-    heroState.camZ = camera.position.z;
-    heroState.tgtX = lookAt.current.x;
-    heroState.tgtZ = lookAt.current.z;
-
     if (import.meta.env.DEV) {
-      // Dev-only probe for the screenshot harness. Stripped from production.
       (window as unknown as { __hero?: unknown }).__hero = {
-        offset,
-        u,
-        side: +side.current.toFixed(3),
-        camera: camera.position.toArray().map((n) => +n.toFixed(3)),
-        lookAt: lookAt.current.toArray().map((n) => +n.toFixed(3)),
-        wantPos: _pos.toArray().map((n) => +n.toFixed(3)),
-        wantTgt: _tgt.toArray().map((n) => +n.toFixed(3)),
-        fov: +camera.fov.toFixed(2),
+        offset: +o.toFixed(3),
+        carZ: +scrollState.carZ.toFixed(2),
+        speed: +scrollState.speed.toFixed(2),
+        section: scrollState.section,
+        camera: camera.position.toArray().map((n) => +n.toFixed(2)),
+        lookAt: lookAt.current.toArray().map((n) => +n.toFixed(2)),
+        released: release > 0,
       };
     }
-  });
+  }, -1);
 
   return null;
 };
