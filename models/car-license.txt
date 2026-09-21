@@ -9,3 +9,9 @@ Model License:
 
 If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
 This work is based on "FREE 1975 Porsche 911 (930) Turbo" (https://sketchfab.com/3d-models/free-1975-porsche-911-930-turbo-8568d9d14a994b9cae59499f0dbed21e) by Lionsharp Studios (https://sketchfab.com/lionsharp) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+Export (from the Sketchfab scene.gltf, kept out of the repo in _source/):
+  npx @gltf-transform/cli optimize scene.gltf car.glb \
+    --compress meshopt --texture-compress webp --texture-size 1024 \
+    --simplify false --palette false --join false --flatten true --instance false
+  --join false keeps each tyre and rim its own mesh for the wheel rig;
+  --simplify false and 1024px textures are the quality floor.

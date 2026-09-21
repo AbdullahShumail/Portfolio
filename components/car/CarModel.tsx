@@ -117,16 +117,15 @@ const CarModel: React.FC = () => {
         if (name.includes('tire')) isTyre = true;
         if (name.includes('rim')) isRim = true;
         if (name === 'glass' || name.includes('lights_refraction')) {
-          // Plain alpha glass, not transmission. Transmission renders the whole
-          // scene to a texture every frame and compiles the heaviest shader
-          // variant three has; on a black studio the refraction it buys is
-          // invisible. This alone is a large share of first-frame time.
-          mat.transmission = 0;
+          // Real transmission: the windows refract the cabin and pick up the
+          // softboxes like glass rather than a tinted sheet. It costs a second
+          // scene pass per frame, but the shader compiles async now so it no
+          // longer holds up the first frame.
           mat.transparent = true;
-          mat.opacity = 0.32;
-          mat.depthWrite = false;
-          mat.roughness = Math.min(mat.roughness, 0.1);
-          mat.metalness = 0.1;
+          mat.transmission = Math.max(mat.transmission ?? 0, 0.85);
+          mat.roughness = Math.min(mat.roughness, 0.08);
+          mat.ior = 1.5;
+          mat.thickness = 0.02;
         }
         if (name === 'paint' || name === 'coat') {
           mat.clearcoat = Math.max(mat.clearcoat ?? 0, 0.9);

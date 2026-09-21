@@ -73,7 +73,7 @@ const CarScene: React.FC = () => {
   return (
     <>
     <Canvas
-      dpr={[1, 1.5]}
+      dpr={isMobile ? [1, 1.5] : [1, 2]}
       shadows={false}
       gl={{
         antialias: true,

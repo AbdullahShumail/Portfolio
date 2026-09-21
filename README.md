@@ -98,13 +98,12 @@ Everything on the critical path was measured and trimmed:
 
 | | before | after |
 |---|---|---|
-| model | 3.12 MB, 1024px textures | 1.78 MB, 512px textures, mesh at 60% |
+| model | 3.12 MB, served unhashed from `public/` | 3.12 MB, 1024px WebP + meshopt, hashed and cached forever |
 | CSS | Tailwind CDN, 110 KB blocking script, compiled at runtime | 27 KB built, 5.9 KB gzipped |
 | environment | 1.5 MB HDR from a CDN | rendered locally |
 | 3D chunks + model | fetched after the main bundle executed | `modulepreload` / `preload` hints in the head, in flight from HTML parse |
-| glass | light transmission: a second scene render per frame and the heaviest shader variant | plain alpha |
 | shaders | compiled synchronously, page frozen meanwhile | `compileAsync` |
-| cold transfer | about 3.7 MB | 2.26 MB, no third-party scripts |
+| cold transfer | about 3.7 MB | 3.6 MB, no third-party scripts, model in flight from HTML parse |
 
 The model lives in `models/car.glb` and is imported with `?url`, so Vite
 hashes it into `dist/assets/`; `public/_headers` marks that folder immutable
@@ -112,8 +111,10 @@ for a year. A new export gets a new name, so caches never go stale. The
 `preloadHeavyAssets` plugin in `vite.config.ts` injects the head hints from
 the real bundle, so the hashed names are always right.
 
-Mesh simplification and 512px textures were checked at the front-wheel
-close-up, the tightest shot, and are indistinguishable there.
+A lighter export (512px textures, mesh simplified to 60%, 1.78 MB) was
+tried and rejected: the paint and the Fuchs rims lost too much. The model
+is the quality floor; everything else on the path is what gets trimmed.
+The export command is in `models/car-license.txt`.
 
 Also: looking down +Z, world +X is screen-left. Cards on the +X verge extend
 left, away from the road.

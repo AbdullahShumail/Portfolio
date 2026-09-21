@@ -35,7 +35,7 @@ const Car: React.FC<{ quality: 'high' | 'low' }> = ({ quality }) => {
         scale={16}
         blur={2.4}
         far={3}
-        resolution={512}
+        resolution={quality === 'high' ? 1024 : 512}
         color="#000000"
         // The shadow rides inside this group, so it moves with the car for
         // free. Its shape only changes with body pitch, which is tiny, so a
