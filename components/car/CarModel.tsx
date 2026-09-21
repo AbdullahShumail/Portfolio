@@ -5,7 +5,10 @@ import { useAnimations, useGLTF } from '@react-three/drei';
 import { easing } from 'maath';
 import { scrollState, smoothstep } from '../../lib/scrollState';
 
-export const CAR_URL = '/car/car.glb';
+import carUrl from '../../models/car.glb?url';
+
+/** Hashed by Vite, so hosts can cache it forever and a new export gets a new name. */
+export const CAR_URL = carUrl;
 
 // Scratch objects, allocated once. Never allocate inside useFrame.
 const _box = new THREE.Box3();
@@ -114,11 +117,16 @@ const CarModel: React.FC = () => {
         if (name.includes('tire')) isTyre = true;
         if (name.includes('rim')) isRim = true;
         if (name === 'glass' || name.includes('lights_refraction')) {
+          // Plain alpha glass, not transmission. Transmission renders the whole
+          // scene to a texture every frame and compiles the heaviest shader
+          // variant three has; on a black studio the refraction it buys is
+          // invisible. This alone is a large share of first-frame time.
+          mat.transmission = 0;
           mat.transparent = true;
-          mat.transmission = Math.max(mat.transmission ?? 0, 0.85);
-          mat.roughness = Math.min(mat.roughness, 0.08);
-          mat.ior = 1.5;
-          mat.thickness = 0.02;
+          mat.opacity = 0.32;
+          mat.depthWrite = false;
+          mat.roughness = Math.min(mat.roughness, 0.1);
+          mat.metalness = 0.1;
         }
         if (name === 'paint' || name === 'coat') {
           mat.clearcoat = Math.max(mat.clearcoat ?? 0, 0.9);

@@ -1,11 +1,12 @@
 import React, { Suspense, useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { Canvas } from '@react-three/fiber';
-import { Environment, Lightformer, Preload, ScrollControls } from '@react-three/drei';
+import { Environment, Lightformer, ScrollControls } from '@react-three/drei';
 import Car from './Car';
 import CameraRig from './CameraRig';
 import Lamp from './Lamp';
 import { ProjectSignals, SignalSet } from './Signals';
+import Warmup from './Warmup';
 
 /** Viewport-heights of scroll the whole experience spans. */
 export const PAGES = 11;
@@ -72,7 +73,7 @@ const CarScene: React.FC = () => {
   return (
     <>
     <Canvas
-      dpr={isMobile ? [1, 1.5] : [1, 2]}
+      dpr={[1, 1.5]}
       shadows={false}
       gl={{
         antialias: true,
@@ -90,7 +91,7 @@ const CarScene: React.FC = () => {
           <Car quality={quality} />
           <SignalSet />
           <ProjectSignals portal={cardLayer} />
-          <Preload all />
+          <Warmup />
         </Suspense>
         <CameraRig />
       </ScrollControls>

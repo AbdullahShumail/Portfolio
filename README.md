@@ -89,11 +89,31 @@ Three things that cost real time:
   so cards drifted off screen. They are portalled into a fixed layer beside
   the canvas instead.
 - **The `city` environment preset fetches a 1.5 MB HDR from a third-party
-  CDN** and suspends the scene until it lands, which is why the car took so
-  long to appear. The environment is now rendered from `Lightformer`
-  softboxes in one frame, with no network. The model is `<link rel=preload>`ed
-  from `index.html` and the 3D chunk's import starts at module load, so both
-  are downloading before React mounts anything.
+  CDN** and suspends the scene until it lands. The environment is now
+  rendered from `Lightformer` softboxes in one frame, with no network.
+
+## Load time
+
+Everything on the critical path was measured and trimmed:
+
+| | before | after |
+|---|---|---|
+| model | 3.12 MB, 1024px textures | 1.78 MB, 512px textures, mesh at 60% |
+| CSS | Tailwind CDN, 110 KB blocking script, compiled at runtime | 27 KB built, 5.9 KB gzipped |
+| environment | 1.5 MB HDR from a CDN | rendered locally |
+| 3D chunks + model | fetched after the main bundle executed | `modulepreload` / `preload` hints in the head, in flight from HTML parse |
+| glass | light transmission: a second scene render per frame and the heaviest shader variant | plain alpha |
+| shaders | compiled synchronously, page frozen meanwhile | `compileAsync` |
+| cold transfer | about 3.7 MB | 2.26 MB, no third-party scripts |
+
+The model lives in `models/car.glb` and is imported with `?url`, so Vite
+hashes it into `dist/assets/`; `public/_headers` marks that folder immutable
+for a year. A new export gets a new name, so caches never go stale. The
+`preloadHeavyAssets` plugin in `vite.config.ts` injects the head hints from
+the real bundle, so the hashed names are always right.
+
+Mesh simplification and 512px textures were checked at the front-wheel
+close-up, the tightest shot, and are indistinguishable there.
 
 Also: looking down +Z, world +X is screen-left. Cards on the +X verge extend
 left, away from the road.
