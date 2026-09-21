@@ -92,6 +92,19 @@ Three things that cost real time:
   CDN** and suspends the scene until it lands. The environment is now
   rendered from `Lightformer` softboxes in one frame, with no network.
 
+## Phones
+
+The same scene, reframed rather than replaced. `portraitAt` in
+`lib/sequence.ts` pulls the camera back until the car fits the width and
+slides the frame: car below the copy while parked, above the cards once
+driving. The overlay panels top-anchor under `md`, the About body is
+hidden (headline and facts carry it), and the project cards become one
+bottom sheet above the dock, driven from `cardPresenceAt` so they keep the
+desktop timing. Below `md` the signal-anchored `Html` cards are not
+rendered at all. `LOW_POWER` (narrow or coarse pointer) drops DPR to 1.5,
+the environment to 128px, the contact shadow to 512, and the glass to
+plain alpha, since transmission renders the scene twice per frame.
+
 ## Load time
 
 Everything on the critical path was measured and trimmed:

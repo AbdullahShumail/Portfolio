@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { SITE } from '../data/site';
 import { SECTIONS, presence, scrollState } from '../lib/scrollState';
+import { PROJECT_SIGNALS, cardPresenceAt } from '../lib/sequence';
+import { PHONE, useMedia } from '../lib/useMedia';
 import { SplitText } from './TypeFX';
 import ContactForm from './ContactForm';
 
@@ -28,7 +30,9 @@ const Overlay: React.FC<OverlayProps> = ({ ready }) => {
   const contact = useRef<HTMLDivElement>(null);
   const bar = useRef<HTMLDivElement>(null);
   const tValue = useRef<HTMLSpanElement>(null);
+  const cards = useRef<(HTMLDivElement | null)[]>([]);
   const [active, setActive] = useState<'hero' | 'drive' | 'projects' | 'contact'>('hero');
+  const phone = useMedia(PHONE);
 
   useEffect(() => {
     let raf = 0;
@@ -54,6 +58,18 @@ const Overlay: React.FC<OverlayProps> = ({ ready }) => {
       place(about.current, presence(o, 0.115, 0.15, 0.185, 0.22), 40);
       place(drive.current, presence(o, 0.27, 0.33, 0.38, 0.43), 0);
       place(contact.current, presence(o, 0.9, 0.97, 2, 3), 40);
+      // phone: the project cards are a bottom sheet, one per signal, on the
+      // same clock as the 3D-anchored cards on desktop
+      cards.current.forEach((el, i) => {
+        if (!el) return;
+        const p = cardPresenceAt(PROJECT_SIGNALS[i].t, o);
+        el.style.opacity = p.toFixed(3);
+        el.style.transform = 'translate3d(0,' + ((1 - p) * 24).toFixed(1) + 'px,0)';
+        el.style.visibility = p < 0.01 ? 'hidden' : 'visible';
+        el.querySelectorAll<HTMLElement>('a').forEach((c) => {
+          c.style.pointerEvents = p > 0.6 ? 'auto' : 'none';
+        });
+      });
 
       if (bar.current) bar.current.style.transform = 'scaleX(' + o.toFixed(4) + ')';
       if (tValue.current) tValue.current.textContent = o.toFixed(3);
@@ -86,7 +102,7 @@ const Overlay: React.FC<OverlayProps> = ({ ready }) => {
       </header>
 
       {/* ---------------- bottom dock: the nav ---------------- */}
-      <nav className="pointer-events-auto absolute bottom-5 left-1/2 flex -translate-x-1/2 items-center gap-1 rounded-full border border-bone/10 bg-obsidian/70 p-1.5 shadow-[0_20px_60px_-18px_rgba(0,0,0,0.9)] backdrop-blur-xl md:bottom-8">
+      <nav className="pointer-events-auto absolute bottom-[calc(1rem+env(safe-area-inset-bottom))] left-1/2 flex -translate-x-1/2 items-center gap-0.5 rounded-full border border-bone/10 bg-obsidian/70 p-1.5 shadow-[0_20px_60px_-18px_rgba(0,0,0,0.9)] backdrop-blur-xl md:bottom-8 md:gap-1">
         {NAV.map((n) => {
           const isActive = active === n.id || (n.id === 'hero' && active === 'drive');
           return (
@@ -95,7 +111,7 @@ const Overlay: React.FC<OverlayProps> = ({ ready }) => {
               type="button"
               onClick={() => go(n.at)}
               className={
-                'rounded-full px-4 py-2.5 text-[11px] font-bold uppercase tracking-[0.16em] transition-colors duration-300 ' +
+                'rounded-full px-3.5 py-2.5 text-[11px] font-bold uppercase tracking-[0.14em] transition-colors duration-300 md:px-4 md:tracking-[0.16em] ' +
                 (isActive ? 'bg-bone text-obsidian' : 'text-bone/55 hover:text-bone')
               }
             >
@@ -103,14 +119,14 @@ const Overlay: React.FC<OverlayProps> = ({ ready }) => {
             </button>
           );
         })}
-        <span className="mx-1 h-5 w-px bg-bone/10" />
+        <span className="mx-1 hidden h-5 w-px bg-bone/10 sm:block" />
         {SITE.social.map((s) => (
           <a
             key={s.short}
             href={s.href}
             target="_blank"
             rel="noopener noreferrer"
-            className="rounded-full px-3 py-2.5 text-[11px] font-bold uppercase tracking-[0.16em] text-bone/55 transition-colors hover:text-bone"
+            className="hidden rounded-full px-3 py-2.5 text-[11px] font-bold uppercase tracking-[0.16em] text-bone/55 transition-colors hover:text-bone sm:block"
           >
             {s.short}
           </a>
@@ -118,10 +134,10 @@ const Overlay: React.FC<OverlayProps> = ({ ready }) => {
       </nav>
 
       {/* ---------------- hero copy, left ---------------- */}
-      <div ref={hero} className="absolute inset-y-0 left-0 flex w-full flex-col justify-center px-6 md:w-[52%] md:px-10" style={{ willChange: 'opacity, transform', pointerEvents: 'none' }}>
+      <div ref={hero} className="absolute inset-y-0 left-0 flex w-full flex-col justify-start px-5 pt-[13vh] md:w-[52%] md:justify-center md:px-10 md:pt-0" style={{ willChange: 'opacity, transform', pointerEvents: 'none' }}>
         <div className="max-w-[540px]">
-          <p className="mb-6 text-[11px] font-semibold uppercase tracking-[0.3em] text-bone/40">{SITE.hero.eyebrow}</p>
-          <h1 className="text-[clamp(2.8rem,6.6vw,6.2rem)] font-bold leading-[0.95] tracking-tight text-bone">
+          <p className="mb-4 text-[11px] font-semibold uppercase tracking-[0.3em] text-bone/40 md:mb-6">{SITE.hero.eyebrow}</p>
+          <h1 className="text-[clamp(2.6rem,6.6vw,6.2rem)] font-bold leading-[0.95] tracking-tight text-bone">
             <span className="block overflow-hidden">
               <SplitText text="Abdullah" active={ready} delay={250} />
             </span>
@@ -129,11 +145,11 @@ const Overlay: React.FC<OverlayProps> = ({ ready }) => {
               <SplitText text="Shumail" active={ready} delay={400} />
             </span>
           </h1>
-          <p className="mt-6 text-[12px] font-bold uppercase tracking-[0.24em] text-bone/60">
+          <p className="mt-5 text-[11px] font-bold uppercase tracking-[0.22em] text-bone/60 md:mt-6 md:text-[12px] md:tracking-[0.24em]">
             AI Engineer &nbsp;/&nbsp; Full-Stack Developer
           </p>
-          <p className="mt-6 max-w-md text-[15px] font-medium leading-[1.7] text-bone/55">{SITE.hero.lead}</p>
-          <div className="mt-8 flex flex-wrap gap-3">
+          <p className="mt-4 max-w-md text-[14px] font-medium leading-[1.65] text-bone/55 md:mt-6 md:text-[15px] md:leading-[1.7]">{SITE.hero.lead}</p>
+          <div className="mt-6 flex flex-wrap gap-3 md:mt-8">
             <button type="button" onClick={() => go(SECTIONS.projects)} className="rounded-full bg-bone px-6 py-3 text-[11px] font-bold uppercase tracking-[0.18em] text-obsidian transition-opacity hover:opacity-85">
               See the work
             </button>
@@ -145,20 +161,21 @@ const Overlay: React.FC<OverlayProps> = ({ ready }) => {
       </div>
 
       {/* ---------------- about, right, while the camera is over the bonnet ---------------- */}
-      <div ref={about} className="absolute inset-y-0 right-0 flex w-full flex-col justify-center px-6 md:w-[50%] md:px-10" style={{ opacity: 0, willChange: 'opacity, transform', pointerEvents: 'none' }}>
+      <div ref={about} className="absolute inset-y-0 right-0 flex w-full flex-col justify-start px-5 pt-[11vh] md:w-[50%] md:justify-center md:px-10 md:pt-0" style={{ opacity: 0, willChange: 'opacity, transform', pointerEvents: 'none' }}>
         <div className="ml-auto w-full max-w-[520px]">
-          <p className="mb-5 text-[11px] font-semibold uppercase tracking-[0.3em] text-bone/40">About</p>
-          <h2 className="text-[clamp(1.7rem,3vw,2.7rem)] font-bold leading-[1.08] tracking-tight text-bone">
+          <p className="mb-4 text-[11px] font-semibold uppercase tracking-[0.3em] text-bone/40 md:mb-5">About</p>
+          <h2 className="text-[clamp(1.6rem,3vw,2.7rem)] font-bold leading-[1.08] tracking-tight text-bone">
             I sit where the model meets the interface, and I own every layer in between.
           </h2>
-          <div className="mt-6 space-y-4">
+          {/* the body reads on a desktop beside the bonnet; on a phone the headline and facts carry it */}
+          <div className="mt-6 hidden space-y-4 md:block">
             {SITE.about.body.map((para, i) => (
               <p key={i} className="text-[15px] font-medium leading-[1.7] text-bone/55">
                 {para}
               </p>
             ))}
           </div>
-          <dl className="mt-8 grid grid-cols-2 gap-x-8 gap-y-5 border-t border-bone/10 pt-6 sm:grid-cols-4">
+          <dl className="mt-6 grid grid-cols-2 gap-x-6 gap-y-4 border-t border-bone/10 pt-5 md:mt-8 md:gap-x-8 md:gap-y-5 md:pt-6 lg:grid-cols-4">
             {[
               { k: 'Currently', v: SITE.about.now },
               { k: 'Based in', v: SITE.location.split('—')[0].trim() },
@@ -171,10 +188,10 @@ const Overlay: React.FC<OverlayProps> = ({ ready }) => {
               </div>
             ))}
           </dl>
-          <div className="mt-6 grid grid-cols-3 gap-4">
+          <div className="mt-5 grid grid-cols-3 gap-4 md:mt-6">
             {SITE.about.stats.map((st) => (
               <div key={st.label}>
-                <p className="text-3xl font-bold tracking-tight text-bone">{st.value}</p>
+                <p className="text-2xl font-bold tracking-tight text-bone md:text-3xl">{st.value}</p>
                 <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-bone/40">{st.label}</p>
               </div>
             ))}
@@ -183,24 +200,24 @@ const Overlay: React.FC<OverlayProps> = ({ ready }) => {
       </div>
 
       {/* ---------------- a single line while driving through the set ---------------- */}
-      <div ref={drive} className="absolute inset-x-0 top-[18%] flex justify-center px-6" style={{ opacity: 0 }}>
-        <p className="text-center text-[clamp(1.4rem,2.6vw,2.2rem)] font-bold tracking-tight text-bone/85">
+      <div ref={drive} className="absolute inset-x-0 top-[14%] flex justify-center px-6 md:top-[18%]" style={{ opacity: 0 }}>
+        <p className="text-center text-[clamp(1.3rem,2.6vw,2.2rem)] font-bold leading-tight tracking-tight text-bone/85">
           Four things I have shipped. <span className="text-bone/40">Keep scrolling.</span>
         </p>
       </div>
 
       {/* ---------------- contact, right ---------------- */}
-      <div ref={contact} className="absolute inset-y-0 right-0 flex w-full flex-col justify-center px-6 md:w-[50%] md:px-10" style={{ opacity: 0, willChange: 'opacity, transform', pointerEvents: 'none' }}>
+      <div ref={contact} className="absolute inset-y-0 right-0 flex w-full flex-col justify-start px-5 pt-[9vh] pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:w-[50%] md:justify-center md:px-10 md:pt-0 md:pb-0" style={{ opacity: 0, willChange: 'opacity, transform', pointerEvents: 'none' }}>
         <div className="ml-auto w-full max-w-[520px]">
-          <p className="mb-5 text-[11px] font-semibold uppercase tracking-[0.3em] text-bone/40">Contact</p>
-          <h2 className="text-[clamp(2rem,3.8vw,3.4rem)] font-bold leading-[1.02] tracking-tight text-bone">Tell me what you are building.</h2>
-          <p className="mt-4 text-[15px] font-medium leading-[1.7] text-bone/55">
+          <p className="mb-4 text-[11px] font-semibold uppercase tracking-[0.3em] text-bone/40 md:mb-5">Contact</p>
+          <h2 className="text-[clamp(1.9rem,3.8vw,3.4rem)] font-bold leading-[1.02] tracking-tight text-bone">Tell me what you are building.</h2>
+          <p className="mt-4 text-[14px] font-medium leading-[1.65] text-bone/55 md:text-[15px] md:leading-[1.7]">
             If it needs a model, an interface, or both held together properly, it is probably my kind of problem.
           </p>
-          <div className="mt-8">
+          <div className="mt-6 md:mt-8">
             <ContactForm compact />
           </div>
-          <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-2 text-[12px] font-semibold text-bone/45">
+          <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 text-[12px] font-semibold text-bone/45 md:mt-6 md:gap-x-6">
             <a href={'mailto:' + SITE.email} className="transition-colors hover:text-bone">
               {SITE.email}
             </a>
@@ -210,11 +227,52 @@ const Overlay: React.FC<OverlayProps> = ({ ready }) => {
               </a>
             ))}
           </div>
-          <p className="mt-8 text-[10px] font-medium leading-relaxed text-bone/25">
+          <p className="mt-5 text-[10px] font-medium leading-relaxed text-bone/25 md:mt-8">
             3D model: 1975 Porsche 911 (930) Turbo by Lionsharp Studios, CC BY 4.0. &copy; {new Date().getFullYear()} {SITE.name}.
           </p>
         </div>
       </div>
+
+      {/* ---------------- phone: project cards as a bottom sheet above the dock ---------------- */}
+      {phone
+        ? PROJECT_SIGNALS.map((spec, i) => {
+            const p = SITE.projects[spec.index];
+            const live = Boolean(p.href) && p.href !== '#';
+            return (
+              <div
+                key={p.title}
+                ref={(el) => {
+                  cards.current[i] = el;
+                }}
+                className="absolute inset-x-4 bottom-[calc(5.25rem+env(safe-area-inset-bottom))]"
+                style={{ opacity: 0, visibility: 'hidden', willChange: 'opacity, transform', pointerEvents: 'none' }}
+              >
+                <div className="rounded-2xl border border-bone/10 bg-obsidian/85 p-5 backdrop-blur-md">
+                  <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-bone/35">
+                    {p.index} &nbsp;·&nbsp; {p.year}
+                  </p>
+                  <div className="mt-2 flex items-baseline justify-between gap-4">
+                    <h3 className="text-xl font-bold tracking-tight text-bone">{p.title}</h3>
+                    {live ? (
+                      <a
+                        href={p.href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="shrink-0 rounded-full bg-bone px-4 py-2 text-[10px] font-bold uppercase tracking-[0.18em] text-obsidian"
+                        style={{ pointerEvents: 'none' }}
+                      >
+                        Visit
+                      </a>
+                    ) : null}
+                  </div>
+                  <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-bone/45">{p.role}</p>
+                  <p className="mt-2.5 text-[13px] leading-[1.55] text-bone/60">{p.description}</p>
+                  <p className="mt-3 text-[11px] font-medium text-bone/40">{p.tags.join(' / ')}</p>
+                </div>
+              </div>
+            );
+          })
+        : null}
 
     </div>
   );

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { SITE } from '../data/site';
-import { SECTIONS } from './scrollState';
+import { SECTIONS, smoothstep } from './scrollState';
 
 export { SECTIONS };
 
@@ -151,6 +151,37 @@ export const PROJECT_SIGNALS: ProjectSignalSpec[] = SITE.projects.map((_, i) => 
   const side: 1 | -1 = i % 2 === 0 ? 1 : -1;
   return { t, index: i, side, x: side * 2.7, z: carZAt(t) + 2.5 };
 });
+
+/**
+ * How present project card `t` is at offset `o`: fades in as the car
+ * approaches its signal, holds while alongside, fades as it passes. Used by
+ * the 3D-anchored cards on desktop and the bottom-sheet cards on phones, so
+ * both read the same clock.
+ */
+export const cardPresenceAt = (t: number, o: number): number =>
+  smoothstep(t - 0.05, t - 0.01, o) * (1 - smoothstep(t + 0.08, t + 0.13, o));
+
+/**
+ * Portrait framing. A phone is a tall, narrow window on the same scene, so
+ * the camera pulls back along its line of sight until the car fits the width,
+ * and the frame is slid so the car sits below the copy while parked, then
+ * above the project cards once it is driving.
+ *
+ *   pull   multiplier on camera distance, from aspect
+ *   shift  fraction of viewport height the scene is pushed down (+) or up (-)
+ */
+export const portraitAt = (o: number, aspect: number): { pull: number; shift: number } => {
+  const driving = smoothstep(0.26, 0.4, o);
+  const narrow = Math.max(0, 0.9 - aspect);
+  // parked: fill the width under the copy. driving: enough to keep both
+  // verges of signals in frame, car in the upper half above the card.
+  const parked = 1.36 + narrow * 1.3;
+  const chase = 1.15 + narrow * 1.5;
+  return {
+    pull: parked + (chase - parked) * driving,
+    shift: 0.2 + (-0.16 - 0.2) * driving,
+  };
+};
 
 export const sectionAt = (o: number): 'hero' | 'drive' | 'projects' | 'contact' => {
   if (o < 0.26) return 'hero';

@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { useFrame, useThree } from '@react-three/fiber';
 import { useScroll } from '@react-three/drei';
 import { easing } from 'maath';
-import { RELEASE_AT, camRelAt, carZAt, fovAt, lookRelAt, sectionAt, sideAt } from '../../lib/sequence';
+import { RELEASE_AT, camRelAt, carZAt, fovAt, lookRelAt, portraitAt, sectionAt, sideAt } from '../../lib/sequence';
 import { scrollState, smoothstep } from '../../lib/scrollState';
 
 // Scratch vectors, allocated once.
@@ -39,6 +39,7 @@ const CameraRig: React.FC = () => {
   const lookAt = useRef(new THREE.Vector3(0, 0.8, 0.2));
   const fov = useRef(34);
   const side = useRef(1);
+  const shiftY = useRef(0);
   const held = useRef<THREE.Vector3 | null>(null);
 
   useEffect(() => {
@@ -85,12 +86,17 @@ const CameraRig: React.FC = () => {
     _want.copy(_car).add(_rel);
     _wantLook.copy(_car).add(_look);
 
-    // Portrait: pull back along the line of sight so the car still fits.
+    // Portrait: pull back along the line of sight so the car still fits, and
+    // remember how far to slide the frame so the car shares the screen with
+    // the copy instead of sitting under it.
     const aspect = size.width / size.height;
-    const wide = size.width > 900;
+    // wide enough for the copy beside the car; a landscape phone counts
+    const wide = size.width > 900 || aspect > 1.3;
+    let shift = 0;
     if (aspect < 0.9) {
-      const pull = 1.35 + (0.9 - aspect) * 1.2;
-      _want.sub(_wantLook).multiplyScalar(pull).add(_wantLook);
+      const portrait = portraitAt(o, aspect);
+      _want.sub(_wantLook).multiplyScalar(portrait.pull).add(_wantLook);
+      shift = portrait.shift;
     }
 
     // Release: past RELEASE_AT the camera blends onto the authored framing at
@@ -109,10 +115,13 @@ const CameraRig: React.FC = () => {
     easing.damp3(lookAt.current, _wantLook, 0.24, dt);
     camera.lookAt(lookAt.current);
 
-    // Which half of the screen the car occupies. Hero only; centred after.
+    // Which half of the screen the car occupies. Wide screens slide it left
+    // or right for the hero; portrait slides it down under the copy, then up
+    // above the cards. A negative view offset moves the picture down.
     side.current = THREE.MathUtils.damp(side.current, sideAt(o), 3, dt);
+    shiftY.current = THREE.MathUtils.damp(shiftY.current, shift, 3, dt);
     const x = wide ? -side.current * SIDE_SHIFT * size.width : 0;
-    const y = wide ? 0 : -size.height * 0.18;
+    const y = -shiftY.current * size.height;
     camera.setViewOffset(size.width, size.height, x, y, size.width, size.height);
 
     fov.current = THREE.MathUtils.damp(fov.current, fovAt(o), 4, dt);

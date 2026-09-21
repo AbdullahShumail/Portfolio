@@ -4,7 +4,7 @@ import { useFrame } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
 import { easing } from 'maath';
 import { SITE } from '../../data/site';
-import { PROJECT_SIGNALS, SIGNAL_SET, SignalSpec } from '../../lib/sequence';
+import { PROJECT_SIGNALS, SIGNAL_SET, SignalSpec, cardPresenceAt } from '../../lib/sequence';
 import { scrollState, smoothstep } from '../../lib/scrollState';
 
 type Lamp = 'red' | 'amber' | 'green';
@@ -127,7 +127,11 @@ export const SignalSet: React.FC = () => {
  * turns green as the car draws level, and carries the project card beside
  * its housing. The card is DOM, positioned by drei's Html at a 3D point.
  */
-export const ProjectSignals: React.FC<{ portal: React.MutableRefObject<HTMLElement> }> = ({ portal }) => {
+export const ProjectSignals: React.FC<{
+  portal: React.MutableRefObject<HTMLElement>;
+  /** Anchor a DOM card to each signal. Off on phones, where the overlay shows the same cards as a bottom sheet. */
+  cards?: boolean;
+}> = ({ portal, cards = true }) => {
   const parts = useSignalParts();
   const [state, setState] = React.useState(() => PROJECT_SIGNALS.map(() => ({ arrival: 0, lit: 'amber' as Lamp, card: 0 })));
   const last = useRef('');
@@ -137,7 +141,7 @@ export const ProjectSignals: React.FC<{ portal: React.MutableRefObject<HTMLEleme
     const next = PROJECT_SIGNALS.map((s) => {
       const arrival = smoothstep(s.t - 0.09, s.t - 0.03, o) * (1 - smoothstep(s.t + 0.1, s.t + 0.16, o));
       const level = smoothstep(s.t - 0.03, s.t + 0.01, o);
-      const card = smoothstep(s.t - 0.05, s.t - 0.01, o) * (1 - smoothstep(s.t + 0.08, s.t + 0.13, o));
+      const card = cardPresenceAt(s.t, o);
       return { arrival, lit: (level > 0.5 ? 'green' : 'amber') as Lamp, card };
     });
     const key = next.map((n) => n.arrival.toFixed(2) + n.card.toFixed(2) + n.lit).join('|');
@@ -162,6 +166,7 @@ export const ProjectSignals: React.FC<{ portal: React.MutableRefObject<HTMLEleme
               extend further left, away from the road, with its right edge at
               the anchor; the -X verge is mirrored.
             */}
+            {cards ? (
             <Html
               portal={portal}
               position={[spec.x + spec.side * 0.5, 3.1, spec.z]}
@@ -204,6 +209,7 @@ export const ProjectSignals: React.FC<{ portal: React.MutableRefObject<HTMLEleme
                 ) : null}
               </div>
             </Html>
+            ) : null}
           </React.Fragment>
         );
       })}

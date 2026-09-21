@@ -1,4 +1,4 @@
-import React, { Suspense, useEffect, useRef, useState } from 'react';
+import React, { Suspense, useRef } from 'react';
 import * as THREE from 'three';
 import { Canvas } from '@react-three/fiber';
 import { Environment, Lightformer, ScrollControls } from '@react-three/drei';
@@ -7,21 +7,10 @@ import CameraRig from './CameraRig';
 import Lamp from './Lamp';
 import { ProjectSignals, SignalSet } from './Signals';
 import Warmup from './Warmup';
+import { LOW_POWER, PHONE, useMedia } from '../../lib/useMedia';
 
 /** Viewport-heights of scroll the whole experience spans. */
 export const PAGES = 11;
-
-const useIsMobile = () => {
-  const [mobile, setMobile] = useState(false);
-  useEffect(() => {
-    const mq = window.matchMedia('(max-width: 768px), (pointer: coarse)');
-    const apply = () => setMobile(mq.matches);
-    apply();
-    mq.addEventListener('change', apply);
-    return () => mq.removeEventListener('change', apply);
-  }, []);
-  return mobile;
-};
 
 /**
  * Studio lighting on a black void. No ground: the car floats on its own
@@ -59,8 +48,9 @@ const Studio: React.FC<{ quality: 'high' | 'low' }> = ({ quality }) => (
  * nav buttons drive identical animation.
  */
 const CarScene: React.FC = () => {
-  const isMobile = useIsMobile();
-  const quality = isMobile ? 'low' : 'high';
+  const lowPower = useMedia(LOW_POWER);
+  const phone = useMedia(PHONE);
+  const quality = lowPower ? 'low' : 'high';
 
   /**
    * drei's Html portals into the nearest ScrollControls container by
@@ -73,7 +63,7 @@ const CarScene: React.FC = () => {
   return (
     <>
     <Canvas
-      dpr={isMobile ? [1, 1.5] : [1, 2]}
+      dpr={lowPower ? [1, 1.5] : [1, 2]}
       shadows={false}
       gl={{
         antialias: true,
@@ -90,7 +80,7 @@ const CarScene: React.FC = () => {
           <Studio quality={quality} />
           <Car quality={quality} />
           <SignalSet />
-          <ProjectSignals portal={cardLayer} />
+          <ProjectSignals portal={cardLayer} cards={!phone} />
           <Warmup />
         </Suspense>
         <CameraRig />

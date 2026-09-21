@@ -65,7 +65,7 @@ const worldAxleOf = (mesh: THREE.Mesh, out: THREE.Vector3): THREE.Vector3 => {
  * at the origin with the front facing +Z. The parent group moves it down the
  * road; this component only owns the wheels and the body pitch.
  */
-const CarModel: React.FC = () => {
+const CarModel: React.FC<{ quality: 'high' | 'low' }> = ({ quality }) => {
   const group = useRef<THREE.Group>(null);
   const body = useRef<THREE.Group>(null);
   const { scene, animations } = useGLTF(CAR_URL, false, true);
@@ -96,6 +96,46 @@ const CarModel: React.FC = () => {
     return new THREE.Vector3(-_centre.x, -_box.min.y, -_centre.z);
   }, [scene]);
 
+  /**
+   * Glass is the one material that changes with the device, so it is its own
+   * pass, re-run if the media query flips. The rig effect below must never
+   * re-run (it re-parents meshes), so it only depends on the scene.
+   */
+  useLayoutEffect(() => {
+    scene.traverse((child) => {
+      const mesh = child as THREE.Mesh;
+      if (!mesh.isMesh) return;
+      (Array.isArray(mesh.material) ? mesh.material : [mesh.material]).forEach((m) => {
+        const mat = m as THREE.MeshPhysicalMaterial;
+        const name = (mat?.name || '').toLowerCase();
+        if (!(name === 'glass' || name.includes('lights_refraction'))) return;
+        mat.transparent = true;
+        if (quality === 'high') {
+          // Real transmission: the windows refract the cabin and pick up the
+          // softboxes like glass rather than a tinted sheet. It costs a second
+          // scene pass per frame; the shader compiles async so it no longer
+          // holds up the first frame.
+          mat.transmission = 0.85;
+          mat.opacity = 1;
+          mat.depthWrite = true;
+          mat.roughness = Math.min(mat.roughness, 0.08);
+          mat.ior = 1.5;
+          mat.thickness = 0.02;
+        } else {
+          // Phones and tablets: plain alpha. Transmission doubles the scene
+          // cost per frame, which a mobile GPU at 1.5x pixels cannot hide,
+          // and on a 6-inch screen the refraction is not visible anyway.
+          mat.transmission = 0;
+          mat.opacity = 0.32;
+          mat.depthWrite = false;
+          mat.roughness = Math.min(mat.roughness, 0.1);
+          mat.metalness = 0.1;
+        }
+        mat.needsUpdate = true;
+      });
+    });
+  }, [scene, quality]);
+
   useLayoutEffect(() => {
     scene.updateMatrixWorld(true);
 
@@ -116,17 +156,6 @@ const CarModel: React.FC = () => {
         const name = (mat.name || '').toLowerCase();
         if (name.includes('tire')) isTyre = true;
         if (name.includes('rim')) isRim = true;
-        if (name === 'glass' || name.includes('lights_refraction')) {
-          // Real transmission: the windows refract the cabin and pick up the
-          // softboxes like glass rather than a tinted sheet. It costs a second
-          // scene pass per frame, but the shader compiles async now so it no
-          // longer holds up the first frame.
-          mat.transparent = true;
-          mat.transmission = Math.max(mat.transmission ?? 0, 0.85);
-          mat.roughness = Math.min(mat.roughness, 0.08);
-          mat.ior = 1.5;
-          mat.thickness = 0.02;
-        }
         if (name === 'paint' || name === 'coat') {
           mat.clearcoat = Math.max(mat.clearcoat ?? 0, 0.9);
           mat.clearcoatRoughness = Math.min(mat.clearcoatRoughness ?? 1, 0.06);

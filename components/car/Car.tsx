@@ -28,7 +28,7 @@ const Car: React.FC<{ quality: 'high' | 'low' }> = ({ quality }) => {
 
   return (
     <group ref={group}>
-      <CarModel />
+      <CarModel quality={quality} />
       <ContactShadows
         position={[0, 0.001, 0]}
         opacity={0.8}
