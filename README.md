@@ -56,6 +56,7 @@ components/
   car/CameraRig.tsx         director: reads useScroll, follows, releases
   car/Signals.tsx           procedural traffic signals + Html project cards
   car/Lamp.tsx              follow-spot on the car
+  car/Daylight.tsx          sky dome, sun, hemisphere fill and fog, night to day
 ```
 
 ## The drive
@@ -68,10 +69,22 @@ wheel and buttons drive identical animation.
 0.00 - 0.08  hero      car parked right, name left
 0.08 - 0.26  beats     car stays parked; camera takes its turns: front wheel,
                        over the bonnet, the rear deck
-0.26 - 0.40  drive     pulls away through a set of signals; each flips green
-0.40 - 0.84  projects  four signals rise in one by one, each with an Html card
-0.84 - 1.00  exit      car accelerates into the fog; camera holds; contact
+0.26 - 0.40  drive     pulls away through a set of signals; each flips green;
+                       day breaks as it crosses them
+0.44 - 0.82  projects  one signal per project rises in, each with an Html card
+0.84 - 1.00  exit      car accelerates into the haze; camera holds; night
+                       returns; contact
 ```
+
+The projects section scales with `SITE.projects`: `PROJECT_STEP` is the
+spacing, every signal and card window is a fraction of it, and `PAGES` grows
+with the count so each project keeps about a page of scroll.
+
+Daylight is one number, `daylightAt(offset)`, read by `Daylight.tsx` (sky
+dome colours, sun, hemisphere, fog colour and density) and by `Lamp.tsx`
+(which dims itself). The dome is a sphere centred on the camera with a
+ground / horizon / zenith gradient that goes through the same tone mapping
+as the scene, so the fog colour and the horizon land on the same pixel.
 
 Everything is authored in `lib/sequence.ts` against offset: the car's z, the
 camera's position and look-at relative to the car, fov, and where every signal

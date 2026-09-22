@@ -4,6 +4,7 @@ import { useFrame } from '@react-three/fiber';
 import { SpotLight } from '@react-three/drei';
 import { easing } from 'maath';
 import { scrollState } from '../../lib/scrollState';
+import { daylightAt } from '../../lib/sequence';
 
 const _want = new THREE.Vector3();
 
@@ -49,6 +50,10 @@ const Lamp: React.FC<{ quality: 'high' | 'low' }> = ({ quality }) => {
     towardCam.multiplyScalar(1.6 / len);
     _want.set(aim.current.x + towardCam.x, 6.2, aim.current.z + towardCam.z);
     easing.damp3(l.position, _want, 0.4, dt);
+
+    // a studio lamp has no business in daylight: fade it as the sky comes up
+    const day = daylightAt(scrollState.offset);
+    l.intensity = (quality === 'high' ? 90 : 60) * (1 - 0.8 * day);
   });
 
   return (

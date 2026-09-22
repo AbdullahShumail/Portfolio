@@ -28,7 +28,7 @@ export const SITE: SiteContent = {
     ],
     stats: [
       { value: '5+', label: 'Years building' },
-      { value: '4', label: 'Products shipped' },
+      { value: '6', label: 'Products shipped' },
       { value: '∞', label: 'Refactors survived' },
     ],
     // Drop your image in /public and point this at it, e.g. '/about-bg.jpg'.
@@ -89,6 +89,50 @@ export const SITE: SiteContent = {
     },
     {
       index: '02',
+      title: 'UnStack',
+      role: 'Design & Development',
+      description:
+        'A minimalist arrow logic puzzle for Android and iOS. Levels are generated in reverse, so every one is provably solvable and the player can never get stuck.',
+      image: '',
+      href: 'https://github.com/AbdullahShumail/UnStack',
+      year: '2026',
+      tags: ['Flutter', 'Game', 'Procedural'],
+    },
+    {
+      index: '03',
+      title: 'Ibras 95 Driver App',
+      role: 'Mobile App / React Native',
+      description:
+        'A mobile workflow app for drivers to submit work orders, tickets, and operational updates from the field.',
+      image: '',
+      href: '#',
+      year: '2026',
+      tags: ['React Native', 'Expo', 'Supabase'],
+    },
+    {
+      index: '04',
+      title: 'NxLims',
+      role: 'Desktop Software / LIMS',
+      description:
+        'A Laboratory Information Management System designed to streamline laboratory workflows and improve data management.',
+      image: '',
+      href: '#',
+      year: '2026',
+      tags: ['Electron', 'Node.js', 'H2', 'PostgreSQL'],
+    },
+    {
+      index: '05',
+      title: 'AI Screen Pilot',
+      role: 'Computer Vision / Automation',
+      description:
+        'A vision-grounded desktop agent that automates browser workflows by understanding screen context and UI actions.',
+      image: '',
+      href: '#',
+      year: '2026',
+      tags: ['Python', 'LLM', 'Automation', 'Computer Vision'],
+    },
+    {
+      index: '06',
       title: 'Zafran Ullah Research',
       role: 'Design & Development',
       description:
@@ -97,28 +141,6 @@ export const SITE: SiteContent = {
       href: 'https://zafranktk.com/',
       year: '2025',
       tags: ['Research', 'Web', 'Editorial'],
-    },
-    {
-      index: '03',
-      title: 'ObliQ',
-      role: 'AI Engineering',
-      description:
-        'An AI idea generator that turns a vague premise into a set of sharp, buildable directions instead of the usual generic list.',
-      image: '/obliq.png',
-      href: 'https://obliq.netlify.app/',
-      year: '2025',
-      tags: ['AI', 'LLM', 'Product'],
-    },
-    {
-      index: '04',
-      title: 'Logicify Edu',
-      role: 'Architecture & Build',
-      description:
-        'A scalable EdTech platform for custom learning paths, progress tracking, and the educational metrics that tell you whether any of it worked.',
-      image: '/aicca.png',
-      href: '#',
-      year: '2024',
-      tags: ['EdTech', 'Platform', 'Data'],
     },
   ],
 

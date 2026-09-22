@@ -4,7 +4,7 @@ import { useFrame } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
 import { easing } from 'maath';
 import { SITE } from '../../data/site';
-import { PROJECT_SIGNALS, SIGNAL_SET, SignalSpec, cardPresenceAt } from '../../lib/sequence';
+import { PROJECT_SIGNALS, SIGNAL_SET, SignalSpec, cardPresenceAt, signalArrivalAt, signalLevelAt } from '../../lib/sequence';
 import { scrollState, smoothstep } from '../../lib/scrollState';
 
 type Lamp = 'red' | 'amber' | 'green';
@@ -139,8 +139,8 @@ export const ProjectSignals: React.FC<{
   useFrame(() => {
     const o = scrollState.offset;
     const next = PROJECT_SIGNALS.map((s) => {
-      const arrival = smoothstep(s.t - 0.09, s.t - 0.03, o) * (1 - smoothstep(s.t + 0.1, s.t + 0.16, o));
-      const level = smoothstep(s.t - 0.03, s.t + 0.01, o);
+      const arrival = signalArrivalAt(s.t, o);
+      const level = signalLevelAt(s.t, o);
       const card = cardPresenceAt(s.t, o);
       return { arrival, lit: (level > 0.5 ? 'green' : 'amber') as Lamp, card };
     });

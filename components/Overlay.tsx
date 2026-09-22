@@ -10,6 +10,8 @@ interface OverlayProps {
   ready: boolean;
 }
 
+const COUNT: Record<number, string> = { 1: 'One', 2: 'Two', 3: 'Three', 4: 'Four', 5: 'Five', 6: 'Six', 7: 'Seven', 8: 'Eight', 9: 'Nine' };
+
 const NAV: { id: 'hero' | 'projects' | 'contact'; label: string; at: number }[] = [
   { id: 'hero', label: 'Home', at: SECTIONS.hero },
   { id: 'projects', label: 'Projects', at: SECTIONS.projects },
@@ -202,7 +204,7 @@ const Overlay: React.FC<OverlayProps> = ({ ready }) => {
       {/* ---------------- a single line while driving through the set ---------------- */}
       <div ref={drive} className="absolute inset-x-0 top-[14%] flex justify-center px-6 md:top-[18%]" style={{ opacity: 0 }}>
         <p className="text-center text-[clamp(1.3rem,2.6vw,2.2rem)] font-bold leading-tight tracking-tight text-bone/85">
-          Four things I have shipped. <span className="text-bone/40">Keep scrolling.</span>
+          {COUNT[SITE.projects.length] ?? SITE.projects.length} things I have shipped. <span className="text-bone/40">Keep scrolling.</span>
         </p>
       </div>
 

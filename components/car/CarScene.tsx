@@ -7,21 +7,20 @@ import CameraRig from './CameraRig';
 import Lamp from './Lamp';
 import { ProjectSignals, SignalSet } from './Signals';
 import Warmup from './Warmup';
+import Daylight from './Daylight';
 import { LOW_POWER, PHONE, useMedia } from '../../lib/useMedia';
-
-/** Viewport-heights of scroll the whole experience spans. */
-export const PAGES = 11;
+import { PAGES } from '../../lib/sequence';
 
 /**
  * Studio lighting on a black void. No ground: the car floats on its own
  * contact shadow. The environment map does the work on paint and chrome; a
- * warm key and a cool rim separate a dark car from a dark ground; fog lets
- * the car dissolve into the distance when it drives off at the end.
+ * cool rim separates a dark car from a dark ground. The sky, the sun, the
+ * hemisphere fill and the fog live in Daylight, which fades them from night
+ * to day as the car drives.
  */
 const Studio: React.FC<{ quality: 'high' | 'low' }> = ({ quality }) => (
   <>
-    <hemisphereLight intensity={0.3} color="#d6dae3" groundColor="#0a0a0c" />
-    <directionalLight position={[5, 7, 4]} intensity={1.4} color="#fff4e6" />
+    <Daylight />
     <directionalLight position={[-6, 3, -5]} intensity={0.7} color="#9fb2d8" />
     <Lamp quality={quality} />
 
@@ -38,7 +37,6 @@ const Studio: React.FC<{ quality: 'high' | 'low' }> = ({ quality }) => (
       <Lightformer form="ring" intensity={2.2} position={[0, 3.5, -12]} scale={4.5} color="#ffffff" />
       <Lightformer form="rect" intensity={0.9} position={[0, 3, 12]} scale={[10, 4, 1]} rotation-y={Math.PI} color="#eef1f8" />
     </Environment>
-    <fogExp2 attach="fog" args={['#040405', 0.012]} />
   </>
 );
 

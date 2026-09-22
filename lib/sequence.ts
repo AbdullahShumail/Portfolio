@@ -140,17 +140,38 @@ export interface ProjectSignalSpec extends SignalSpec {
   index: number;
 }
 
+/** The projects section: first signal at the start, last at the end. */
+const PROJECTS_START = 0.44;
+const PROJECTS_END = 0.82;
+
+/** Offset between one project signal and the next. Every window below is a fraction of it. */
+export const PROJECT_STEP = (PROJECTS_END - PROJECTS_START) / Math.max(1, SITE.projects.length - 1);
+
+/**
+ * Scroll length in viewport heights. Grows with the project count so each
+ * signal keeps about a page of scroll however many there are.
+ */
+export const PAGES = 9 + Math.ceil(SITE.projects.length / 2);
+
 /**
  * One signal per project, spaced evenly through the projects section. Each
  * stands a little ahead of where the car is at its own offset, alternating
  * sides, so the card is beside the driver's window as it arrives.
  */
 export const PROJECT_SIGNALS: ProjectSignalSpec[] = SITE.projects.map((_, i) => {
-  const n = SITE.projects.length;
-  const t = 0.45 + (i * (0.81 - 0.45)) / Math.max(1, n - 1);
+  const t = PROJECTS_START + i * PROJECT_STEP;
   const side: 1 | -1 = i % 2 === 0 ? 1 : -1;
   return { t, index: i, side, x: side * 2.7, z: carZAt(t) + 2.5 };
 });
+
+/** Signal `t` rising out of the verge as the car approaches, sinking once passed. */
+export const signalArrivalAt = (t: number, o: number): number =>
+  smoothstep(t - 0.75 * PROJECT_STEP, t - 0.25 * PROJECT_STEP, o) *
+  (1 - smoothstep(t + 0.8 * PROJECT_STEP, t + 1.3 * PROJECT_STEP, o));
+
+/** 0..1 as the car draws level with signal `t`; past 0.5 it shows green. */
+export const signalLevelAt = (t: number, o: number): number =>
+  smoothstep(t - 0.25 * PROJECT_STEP, t + 0.08 * PROJECT_STEP, o);
 
 /**
  * How present project card `t` is at offset `o`: fades in as the car
@@ -159,7 +180,16 @@ export const PROJECT_SIGNALS: ProjectSignalSpec[] = SITE.projects.map((_, i) => 
  * both read the same clock.
  */
 export const cardPresenceAt = (t: number, o: number): number =>
-  smoothstep(t - 0.05, t - 0.01, o) * (1 - smoothstep(t + 0.08, t + 0.13, o));
+  smoothstep(t - 0.42 * PROJECT_STEP, t - 0.1 * PROJECT_STEP, o) *
+  (1 - smoothstep(t + 0.5 * PROJECT_STEP, t + 0.85 * PROJECT_STEP, o));
+
+/**
+ * Daylight, 0..1. Night while the car is parked; day breaks as it drives
+ * through the opening signals, holds through the projects, and fades back
+ * to night as the car leaves and the contact panel comes in.
+ */
+export const daylightAt = (o: number): number =>
+  smoothstep(0.25, 0.37, o) * (1 - smoothstep(0.86, 0.95, o));
 
 /**
  * Portrait framing. A phone is a tall, narrow window on the same scene, so
